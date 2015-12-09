@@ -3,6 +3,7 @@
 module Rope
     ( Rope
     , insert
+    , insertChar
     , fromString
     , empty
     , delete
@@ -18,7 +19,7 @@ wordBlock = 8
 
 empty = Null
         
-data Rope = Branch Int Rope Rope
+data Rope = Branch Int Int Rope Rope -- Left weight, right weight, left branch, right branch
           | Null
           | Leaf Int T.Text deriving (Show)
 
@@ -29,22 +30,23 @@ combine Null right = right --doesn't combine if one node is empty
 combine left Null  = left
 combine left@(Leaf len1 text1) right@(Leaf len2 text2)
       | len1 + len2 <= wordBlock = Leaf (len1 + len2) $ T.append text1 text2
-      | otherwise = Branch len1 left right
+      | otherwise = Branch len1 len2 left right
 -- standard combine of two branches
-combine left right = Branch len left right
+combine left right = Branch len rLen left right
   where len = size left
+        rLen = size right
                     
 
 split :: Int -> Rope -> (Rope, Rope)
 split _ Null = (Null, Null)
 split 0 rope = (Null,rope)
-split i (Branch len left right)
+split i (Branch lLen rLen left right)
       -- right branch must be in part though members in left can be in right
-      | i <= len = (ll, lr `combine` right) 
+      | i <= lLen = (ll, lr `combine` right) 
       -- split can only be in right though members in right may be in left part
       | otherwise = (left `combine` rl, rr) 
   where (ll, lr) = split i left
-        (rl, rr) = split (i - len) right
+        (rl, rr) = split (i - lLen) right
                    
 split i leaf@(Leaf len text)
       | i == 0 = (Null, leaf)
@@ -89,7 +91,7 @@ fromString input = frmString input 0 Null
 ------------------------------------------------------------------------------------
 -- helper functions
 size :: Rope -> Int
-size (Branch s _ r) = s + size r
+size (Branch ls rs _ _) = ls + rs
 size (Leaf s _)     = s
 size Null = 0
 
@@ -109,5 +111,5 @@ balance l@Leaf{} = l
 balance branch =
   let i = size branch `div` 2
       (l, r) = split i branch
-  in Branch i (balance l) (balance r)
+  in Branch (size l) (size r) (balance l) (balance r)
       
