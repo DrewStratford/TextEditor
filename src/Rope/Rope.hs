@@ -1,12 +1,23 @@
 {-# LANGuAGE GADTs, OverloadedStrings #-}
 
-module Rope where
+module Rope
+    ( Rope
+    , insert
+    , fromString
+    , empty
+    , delete
+    , deleteChar
+    , split
+    ) where 
 
 import qualified Data.Text as T
 
 -- The size of the leaf blocks
+wordBlock :: Int
 wordBlock = 8
 
+empty = Null
+        
 data Rope = Branch Int Rope Rope
           | Null
           | Leaf Int T.Text deriving (Show)
@@ -83,3 +94,20 @@ size (Leaf s _)     = s
 size Null = 0
 
 ------------------------------------------------------------------------------------
+-- balancing stuff
+
+{-
+    a naive balance
+    splits tree in half then combines it
+    
+    has a space issue in that an extra node is made
+    plus bad time complexity
+-}
+balance :: Rope -> Rope
+balance Null = Null
+balance l@Leaf{} = l
+balance branch =
+  let i = size branch `div` 2
+      (l, r) = split i branch
+  in Branch i (balance l) (balance r)
+      
