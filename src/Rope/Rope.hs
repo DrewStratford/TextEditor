@@ -31,6 +31,9 @@ combine left Null  = left
 combine left@(Leaf len1 text1) right@(Leaf len2 text2)
       | len1 + len2 <= wordBlock = Leaf (len1 + len2) $ T.append text1 text2
       | otherwise = Branch len1 len2 left right
+-- handles the common case where two short leafs may be next to each other
+-- and combines them
+combine (Branch ll rl l r@Leaf{}) leaf@Leaf{} = Branch ll (rl + size leaf) l $ combine r leaf
 -- standard combine of two branches
 combine left right = Branch len rLen left right
   where len = size left
@@ -57,8 +60,15 @@ split i leaf@(Leaf len text)
         (left, right) = T.splitAt i text
 
 insert :: Rope -> Int -> Rope -> Rope
-insert inserting index rope = left `combine` inserting `combine` right
+insert inserting index rope
+      | abs (ls - rs) < 1 = inserted  --does not balance when suffuciently balanced
+      | otherwise   = balance inserted
   where (left, right) = split index rope
+        inserted      = left `combine` inserting `combine` right
+        -- log 2 heights used to check if we should restructure
+        ls            = logBase 2 (fromIntegral $ leftSize inserted)
+        rs            = logBase 2 (fromIntegral $ rightSize inserted)
+
 
 insertChar :: Char -> Int -> Rope -> Rope
 insertChar c = insert leaf
@@ -95,6 +105,10 @@ size (Branch ls rs _ _) = ls + rs
 size (Leaf s _)     = s
 size Null = 0
 
+rightSize (Branch _ rs _ _) = rs
+rightSize x = size x
+leftSize (Branch ls _ _ _) = ls
+leftSize x = size x
 ------------------------------------------------------------------------------------
 -- balancing stuff
 
@@ -103,7 +117,7 @@ size Null = 0
     splits tree in half then combines it
     
     has a space issue in that an extra node is made
-    plus bad time complexity
+    plus bad time complexity (should be n log n)
 -}
 balance :: Rope -> Rope
 balance Null = Null
@@ -113,3 +127,14 @@ balance branch =
       (l, r) = split i branch
   in Branch (size l) (size r) (balance l) (balance r)
       
+--other
+balance2 :: Rope -> Rope
+balance2 (Branch _ _ l@Leaf{} r@Leaf{}) = combine l r
+balance2 b@(Branch _ _ left right)
+         | delta < wordBlock = b
+         | lSize < rSize = insert left 0 right
+         | otherwise     = insert right rSize left
+  where lSize = size left
+        rSize = size right
+        delta = abs $ lSize - rSize
+balance2 node = node
