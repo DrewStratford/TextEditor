@@ -25,8 +25,14 @@ data Rope = Branch Int Int Rope Rope -- Left weight, right weight, left branch, 
           | Leaf Int T.Text deriving (Show)
 
 ------------------------------------------------------------------------------------
--- operations on strings
+{-
+  TODO:
+  rewrite combine to do AVL Style rotations on the top two branches are
+  combined until heights are balanced. This should work as the subtrees
+  should already be height balanced on insertion.
 
+  Will have to add depth to branches and consider edge cases for Leaf nodes
+-}
 combine Null right = right --doesn't combine if one node is empty
 combine left Null  = left
 combine left@(Leaf len1 text1) right@(Leaf len2 text2)
@@ -44,7 +50,7 @@ combine left right = Branch len rLen left right
 split :: Int -> Rope -> (Rope, Rope)
 split _ Null = (Null, Null)
 split 0 rope = (Null,rope)
-split i (Branch lLen rLen left right)
+split i (Branch lLen _ left right)
       -- right branch must be in part though members in left can be in right
       | i <= lLen = (ll, lr `combine` right) 
       -- split can only be in right though members in right may be in left part
@@ -129,13 +135,3 @@ balance branch =
   in Branch (size l) (size r) (balance l) (balance r)
       
 --other
-balance2 :: Rope -> Rope
-balance2 (Branch _ _ l@Leaf{} r@Leaf{}) = combine l r
-balance2 b@(Branch _ _ left right)
-         | delta < wordBlock = b
-         | lSize < rSize = insert left 0 right
-         | otherwise     = insert right rSize left
-  where lSize = size left
-        rSize = size right
-        delta = abs $ lSize - rSize
-balance2 node = node

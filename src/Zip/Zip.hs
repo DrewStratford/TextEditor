@@ -1,9 +1,13 @@
-module Zip
+module Zip.Zip
     ( left
     , right
-    , atPoint
-    , empty
+    , Zip 
+    , toPoint
+    , withPoint
+    , zipper
     , insert
+    , atStart
+    , atEnd
     ) where
 
 type Zip a = ([a], [a])
@@ -14,10 +18,20 @@ left z = z
 right (as, b:bs) = (b:as, bs)
 right z = z
 
-atPoint :: (a -> a) -> Zip a -> Zip a
-atPoint _ z@([],_) = z
-atPoint f (a:as,bs) = (f a: as,bs)
+toPoint :: (a -> a) -> Zip a -> Zip a
+toPoint _ z@([],_) = z
+toPoint f (a:as,bs) = (f a: as,bs)
 
-empty = ([],[])
+withPoint :: (a -> b) -> b ->  Zip a -> b
+withPoint _  a ([],_) = a
+withPoint f _ (a:_,_) = f a
+
+zipper = ([],[])
 
 insert a (as,bs) = (a:as,bs)
+
+atStart ([],_) = True
+atStart _      = False
+
+atEnd (_,[])   = True
+atEnd _        = False
