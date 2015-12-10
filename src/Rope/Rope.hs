@@ -9,6 +9,7 @@ module Rope
     , delete
     , deleteChar
     , split
+    , size
     ) where 
 
 import qualified Data.Text as T
