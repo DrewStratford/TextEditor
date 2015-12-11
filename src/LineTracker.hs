@@ -5,6 +5,7 @@ module LineTracker
     , down
     , newline
     , asSeqCoOrd
+    , getLineNum
     ) where
 
 import Prelude hiding (lines)
@@ -44,7 +45,7 @@ down (LineTracker z off line) = LineTracker (right z) o lineNum
             | otherwise = line + 1
 
 newline :: LineTracker -> Int -> LineTracker
-newline lTracker col = lTracker { lines = updtdLines } -- should probably call down here
+newline lTracker col = down lTracker { lines = updtdLines } -- should probably call down here
   where prevNewLine = getPlace $ lines lTracker 
         lineNum     = col + prevNewLine
         nLine       = NewLine lineNum col $ offsetAccrued lTracker
@@ -54,9 +55,11 @@ asSeqCoOrd :: LineTracker -> Int
 asSeqCoOrd lTracker = offsetAccrued lTracker + nLine - getOffsetWhenCreated (lines lTracker)
   where nLine = getPlace $ lines lTracker
 
+getLineNum = point 
 -- helper for working with lines
 getPlace :: Zip NewLine -> Int
 getPlace = withPoint place 0
+
 
 getOffset = withPoint offset 0
 getOffsetWhenCreated = withPoint offsetWhenCreated 0
