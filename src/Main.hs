@@ -20,6 +20,7 @@ update doc = do
            setCursorPosition 39 0
            print $ x 
            setCursorPosition 40 0
+           print d
            setCursorPosition x y
            update d
     'J' -> do
@@ -28,6 +29,7 @@ update doc = do
            setCursorPosition 39 0
            print $ x 
            setCursorPosition 40 0
+           print d
            setCursorPosition x y
            update d
     _   -> do
@@ -37,8 +39,8 @@ update doc = do
            _ <- output d
            (x, y) <- return $ getPos d
            setCursorPosition 39 0
-           print $ x 
+           print  x
            setCursorPosition 40 0
-           print $ Document.lines d
+           print d
            setCursorPosition x y
            update d

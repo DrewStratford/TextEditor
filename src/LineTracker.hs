@@ -5,61 +5,54 @@ module LineTracker
     , down
     , newline
     , asSeqCoOrd
-    , getLineNum
+    , line
+    , col
+    , increase
+    , decrease
     ) where
 
 import Prelude hiding (lines)
 import Zip.Zip
 
-{-
-  line is where the newline is in the string
-  however when a newline is inserted above another
-  newline line is offset, offset is the offset that the line
-  causes below
--}
-data NewLine = NewLine
-    { place :: Int,
-      offset :: Int,
-      offsetWhenCreated :: Int
-    } deriving Show
-
 data LineTracker = LineTracker
     {
-      lines         :: Zip NewLine,
-      offsetAccrued :: Int,
-      point         :: Int
+      lines         :: Zip Int,
+      offset :: Int,
+      line          :: Int,
+      col           :: Int
     } deriving Show 
 
-lineTracker = LineTracker (NewLine 0 0 0 `insert` zipper) 0 0
+lineTracker = LineTracker ( 0 `insert` zipper) 0 0 0
 
-up (LineTracker z off line) = LineTracker (left z) o lineNum
-  where o = off - getOffset z
+up cursor = nCurs { offset = off,col = min (col nCurs) (lineLength nCurs)}
+  where off = offset cursor - lineLength nCurs
+        nCurs = cursor {  line = lineNum, lines = left (lines cursor)}
         lineNum
-            | atStart z = 0
-            | otherwise = line - 1
+            | atStart $ lines cursor = 0
+            | otherwise =  line cursor - 1
 
-down (LineTracker z off line) = LineTracker (right z) o lineNum
-  where o = off + getOffset z 
+down cursor = nCurs { offset = off, col = min (col nCurs) (lineLength nCurs)}
+  where off = offset cursor + lineLength cursor
+        nCurs = cursor { offset = off, line = lineNum, lines = right (lines cursor)}
         lineNum
-            | atEnd z = line
-            | otherwise = line + 1
+            | atStart $ lines cursor = line cursor
+            | otherwise =  line cursor + 1
 
-newline :: LineTracker -> Int -> LineTracker
-newline lTracker col = down lTracker { lines = updtdLines } -- should probably call down here
-  where prevNewLine = getPlace $ lines lTracker 
-        lineNum     = 1 + col + prevNewLine
-        nLine       = NewLine lineNum col $ offsetAccrued lTracker
-        updtdLines  = left $ nLine `insert` lines lTracker
+newline :: LineTracker -> LineTracker
+newline cursor = down cursor
+                 { col = 0
+                   -- updates line size and inserts remainder in newline
+                 , lines = left $ r `insert` toPoint (const l) (lines cursor)
+                 }
+  -- splits line based on cursor 
+  where (l, r) = (col cursor, lineLength cursor - col cursor) 
         
+increase cursor = cursor{ col = col cursor + 1, lines = toPoint (+1) $ lines cursor}
+decrease cursor = cursor{ col = col cursor - 1, lines = toPoint (\x -> x- 1) $ lines cursor}
+
 asSeqCoOrd :: LineTracker -> Int
-asSeqCoOrd lTracker = offsetAccrued lTracker + nLine - getOffsetWhenCreated (lines lTracker)
-  where nLine = getPlace $ lines lTracker
-
-getLineNum = point 
--- helper for working with lines
-getPlace :: Zip NewLine -> Int
-getPlace = withPoint place 0
+asSeqCoOrd lTracker = offset lTracker + col lTracker
 
 
-getOffset = withPoint offset 0
-getOffsetWhenCreated = withPoint offsetWhenCreated 0
+lineLength  = withPoint id 0 . lines
+
