@@ -47,7 +47,7 @@ down (LineTracker z off line) = LineTracker (right z) o lineNum
 newline :: LineTracker -> Int -> LineTracker
 newline lTracker col = down lTracker { lines = updtdLines } -- should probably call down here
   where prevNewLine = getPlace $ lines lTracker 
-        lineNum     = col + prevNewLine
+        lineNum     = 1 + col + prevNewLine
         nLine       = NewLine lineNum col $ offsetAccrued lTracker
         updtdLines  = left $ nLine `insert` lines lTracker
         
