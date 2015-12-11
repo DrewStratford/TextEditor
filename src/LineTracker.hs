@@ -3,9 +3,11 @@ module LineTracker
     , lineTracker
     , up
     , down
-    , new
+    , newline
+    , asSeqCoOrd
     ) where
 
+import Prelude hiding (lines)
 import Zip.Zip
 
 {-
@@ -14,21 +16,47 @@ import Zip.Zip
   newline line is offset, offset is the offset that the line
   causes below
 -}
-data NewLine = NewLine { place :: Int, offset :: Int, offsetWhenCreated :: Int }
+data NewLine = NewLine
+    { place :: Int,
+      offset :: Int,
+      offsetWhenCreated :: Int
+    } deriving Show
 
-data LineTracker = LineTracker (Zip NewLine) Int Int
+data LineTracker = LineTracker
+    {
+      lines         :: Zip NewLine,
+      offsetAccrued :: Int,
+      point         :: Int
+    } deriving Show 
 
-lineTracker = LineTracker (NewLine 0 0 0 `insert` zipper)
+lineTracker = LineTracker (NewLine 0 0 0 `insert` zipper) 0 0
 
 up (LineTracker z off line) = LineTracker (left z) o lineNum
-  where o = off - withPoint offset 0 z
+  where o = off - getOffset z
         lineNum
             | atStart z = 0
             | otherwise = line - 1
 
-down (LineTracker z off line) = LineTracker (left z) o lineNum
-  where o = off + withPoint offset 0 z - withPoint offsetWhenCreated 0 z 
+down (LineTracker z off line) = LineTracker (right z) o lineNum
+  where o = off + getOffset z 
         lineNum
             | atEnd z = line
             | otherwise = line + 1
 
+newline :: LineTracker -> Int -> LineTracker
+newline lTracker col = lTracker { lines = updtdLines } -- should probably call down here
+  where prevNewLine = getPlace $ lines lTracker 
+        lineNum     = col + prevNewLine
+        nLine       = NewLine lineNum col $ offsetAccrued lTracker
+        updtdLines  = left $ nLine `insert` lines lTracker
+        
+asSeqCoOrd :: LineTracker -> Int
+asSeqCoOrd lTracker = offsetAccrued lTracker + nLine - getOffsetWhenCreated (lines lTracker)
+  where nLine = getPlace $ lines lTracker
+
+-- helper for working with lines
+getPlace :: Zip NewLine -> Int
+getPlace = withPoint place 0
+
+getOffset = withPoint offset 0
+getOffsetWhenCreated = withPoint offsetWhenCreated 0

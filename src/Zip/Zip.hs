@@ -26,6 +26,7 @@ withPoint :: (a -> b) -> b ->  Zip a -> b
 withPoint _  a ([],_) = a
 withPoint f _ (a:_,_) = f a
 
+
 zipper = ([],[])
 
 insert a (as,bs) = (a:as,bs)
