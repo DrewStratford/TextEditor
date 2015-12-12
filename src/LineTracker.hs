@@ -1,11 +1,14 @@
 module LineTracker
     ( LineTracker
     , lineTracker
-    , up
-    , down
+    , cursorUp
+    , cursorDown
+    , cursorLeft
+    , cursorRight
     , newline
     , asSeqCoOrd
     , line
+    , lineLength
     , col
     , increase
     , decrease
@@ -24,24 +27,37 @@ data LineTracker = LineTracker
 
 lineTracker = LineTracker ( 0 `insert` zipper) 0 0 0
 
-up cursor = nCurs { offset = off,col = min (col nCurs) (lineLength nCurs)}
+cursorUp cursor
+         -- we do left because the when we are at the first line we'll still
+         -- have one int int the left side of the zipper and atStart would return false
+    | atStart $ left $ lines cursor = cursor
+    | otherwise = nCurs { offset = off,col = nCol}
   where off = offset cursor - lineLength nCurs
+        lineNum = line cursor - 1
+        nCol = min (col nCurs) (lineLength nCurs - 1)
         nCurs = cursor {  line = lineNum, lines = left (lines cursor)}
-        lineNum
-            | atStart $ lines cursor = 0
-            | otherwise =  line cursor - 1
 
-down cursor = nCurs { offset = off, col = min (col nCurs) (lineLength nCurs)}
+cursorDown cursor
+    | atEnd $ lines cursor = cursor
+    | otherwise = nCurs { offset = off, col = nCol}
   where off = offset cursor + lineLength cursor
+        lineNum = line cursor + 1
         nCurs = cursor { offset = off, line = lineNum, lines = right (lines cursor)}
-        lineNum
-            | atStart $ lines cursor = line cursor
-            | otherwise =  line cursor + 1
+        nCol
+           | atEnd $ lines nCurs = min (col nCurs) (lineLength nCurs )
+           | otherwise            = min (col nCurs) (lineLength nCurs - 1)
 
+cursorLeft cursor = cursor { col = max (col cursor -1) 0 }
+cursorRight cursor = cursor { col = min (col cursor +1) len }
+  where len
+           | atEnd $ lines cursor = lineLength cursor
+           -- we minus one because we don't want it going passed the newline
+           | otherwise = lineLength cursor - 1
+              
 newline :: LineTracker -> LineTracker
-newline cursor = down cursor
+newline cursor = cursorDown cursor
                  { col = 0
-                   -- updates line size and inserts remainder in newline
+                   -- Updates line size and inserts remainder in newline
                  , lines = left $ r `insert` toPoint (const l) (lines cursor)
                  }
   -- splits line based on cursor 
