@@ -4,134 +4,72 @@ module Rope
     ( Rope
     , insert
     , insertChar
-    , fromString
     , empty
     , delete
     , deleteChar
     , split
-    , size
     ) where 
 
-import qualified Data.Text as T
 
--- The size of the leaf blocks
-wordBlock :: Int
-wordBlock = 8
 
 empty = Null
-        
-data Rope = Branch Int Int Rope Rope -- Left weight, right weight, left branch, right branch
+        -- Left weight, right weight, left branch, right branch
+data Rope b = Branch Int b (Rope b) (Rope b)
           | Null
-          | Leaf Int T.Text deriving (Show)
+          | Leaf Int Int deriving (Show)
 
+data Node = Node {left :: Int, right :: Int}
+
+type Prefix = Rope Node
+                  
 ------------------------------------------------------------------------------------
 {-
-  TODO:
-  rewrite combine to do AVL Style rotations on the top two branches are
-  combined until heights are balanced. This should work as the subtrees
-  should already be height balanced on insertion.
-
-  Will have to add depth to branches and consider edge cases for Leaf nodes
 -}
-combine Null right = right --doesn't combine if one node is empty
-combine left Null  = left
-combine left@(Leaf len1 text1) right@(Leaf len2 text2)
-      | len1 + len2 <= wordBlock = Leaf (len1 + len2) $ T.append text1 text2
-      | otherwise = Branch len1 len2 left right
--- handles the common case where two short leafs may be next to each other
--- and combines them
-combine (Branch ll rl l r@Leaf{}) leaf@Leaf{} = Branch ll (rl + size leaf) l $ combine r leaf
--- standard combine of two branches
-combine left right = Branch len rLen left right
-  where len = size left
-        rLen = size right
+combine Null b = b
+combine b Null = b
+combine l r    = Branch 0 node l r
+  where node = Node (size l) (size r)
                     
 
-split :: Int -> Rope -> (Rope, Rope)
+split :: Int -> Prefix -> (Prefix, Prefix)
+split 0 b = (Null, b)
 split _ Null = (Null, Null)
-split 0 rope = (Null,rope)
-split i (Branch lLen _ left right)
-      -- right branch must be in part though members in left can be in right
-      | i <= lLen = (ll, lr `combine` right) 
-      -- split can only be in right though members in right may be in left part
-      | otherwise = (left `combine` rl, rr) 
-  where (ll, lr) = split i left
-        (rl, rr) = split (i - lLen) right
-                   
-split i leaf@(Leaf len text)
-      | i == 0 = (Null, leaf)
-      | i >= wordBlock || i >= len = (leaf, Null)
-      | otherwise = (Leaf lLen left, Leaf rLen right)
-  where rLen = len - i
-        lLen = i
-        (left, right) = T.splitAt i text
+split _ l@Leaf{} = (l, Null)
+split i branch@(Branch _ node l r)
+      | i == size branch = (Null, branch)
+      | i < left node    = (ll, lr `combine` r)
+  where (ll,lr) = split i l
+        (rl,rr) = split (i - left node) r
 
-insert :: Rope -> Int -> Rope -> Rope
-insert inserting index rope
-      | abs (ls - rs) < 1 = inserted  --does not balance when suffuciently balanced
-      | otherwise   = balance inserted
-  where (left, right) = split index rope
-        inserted      = left `combine` inserting `combine` right
-        -- log 2 heights used to check if we should restructure
-        ls            = logBase 2 (fromIntegral $ leftSize inserted)
-        rs            = logBase 2 (fromIntegral $ rightSize inserted)
+insert :: Prefix -> Int -> Prefix -> Prefix
+insert = undefined
 
 
-insertChar :: Char -> Int -> Rope -> Rope
-insertChar c = insert leaf
-  where leaf = Leaf 1 (T.pack [c])
+insertChar :: Char -> Int -> Prefix -> Prefix
+insertChar = undefined
 
-delete :: Int -> Int -> Rope -> Rope
-delete start range rope = left `combine` right
-  where (left, mid) = split start rope
-        (_, right)  = split range mid
+delete :: Int -> Int -> Prefix -> Prefix
+delete = undefined
 
-deleteChar :: Int -> Rope -> Rope
+deleteChar :: Int -> Prefix -> Prefix
 deleteChar index = delete index 0
                    
 ------------------------------------------------------------------------------------
--- creation stuff
-
-gen :: String -> [Int] -> Rope
-gen cs is = foldl (\r (c, i) -> insertChar c i r) Null (zip cs is)
-
--- this will probobably be slow
--- possibly speed it up by inserting wordBlock 
-fromString :: String -> Rope
-fromString input = frmString input 0 Null
-  where frmString [] _ rope = rope
-        frmString cs i r = frmString rcs (i+wordBlock) (insert word i r)
-          where (w, rcs) = splitAt wordBlock cs
-                word = Leaf (length w) $ T.pack w
-                   
-                               
-------------------------------------------------------------------------------------
 -- helper functions
-size :: Rope -> Int
-size (Branch ls rs _ _) = ls + rs
-size (Leaf s _)     = s
-size Null = 0
+size :: Prefix -> Int
+size Null   = 0
+size Leaf{} = 1
+size (Branch _ n _ _) = left n + right n
+                               
+getRight :: Prefix -> Int
+getRight Null = 0
+getRight Leaf{} = 0
+getRight (Branch _ n _ _) = right n
 
-rightSize (Branch _ rs _ _) = rs
-rightSize x = size x
-leftSize (Branch ls _ _ _) = ls
-leftSize x = size x
+getLeft :: Prefix -> Int
+getLeft Null = 0
+getLeft Leaf{} = 0
+getLeft (Branch _ n _ _) = left n
 ------------------------------------------------------------------------------------
--- balancing stuff
 
-{-
-    a naive balance
-    splits tree in half then combines it
-    
-    has a space issue in that an extra node is made
-    plus bad time complexity (should be n log n)
--}
-balance :: Rope -> Rope
-balance Null = Null
-balance l@Leaf{} = l
-balance branch =
-  let i = size branch `div` 2
-      (l, r) = split i branch
-  in Branch (size l) (size r) (balance l) (balance r)
-      
---other
+------------------------------------------------------------------------------------
