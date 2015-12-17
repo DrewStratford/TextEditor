@@ -5,6 +5,7 @@ module Data.PrefixTree
     , prefixAt
     , insertAt
     , valueAt
+    , updateAt
     , module Data.FingerTree 
     , size
     ) where
@@ -42,6 +43,14 @@ valueAt index tree =
     where (left,_ ) = splitAtIndex index tree
           a         = viewr left
 
+updateAt :: Int -> (Int -> Int) -> PrefixTree -> PrefixTree
+updateAt index f pTree = 
+    case view of
+      EmptyR -> pTree
+      (left :> i) -> (left |> f i) >< right
+  where (l, right) = splitAtIndex index pTree
+        view = viewr $ l
+
 insertAt :: Int -> Int -> PrefixTree -> PrefixTree
 insertAt index insertee pTree = (left |> insertee) >< right
   where (left, right) = splitAtIndex index pTree
@@ -51,4 +60,4 @@ size pTree =
   case sTree of
     EmptyR      -> 0
     (_ :> size) -> size
-  where sTree = viewr $ fmapWithPos (\(Sum x, _) y -> x + y) pTree
+  where sTree = viewr $ fmapWithPos (\(_,Sum x) _ -> x +1) pTree
