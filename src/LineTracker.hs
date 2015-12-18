@@ -10,6 +10,7 @@ module LineTracker
     , lineLength
     , line
     , lineStart
+    , backSpace
     , col
     , increase
     , decrease
@@ -61,6 +62,15 @@ cursorRight cursor = cursor { col = min (col cursor +1) len }
           | size (lines cursor) - 1 == line cursor = lineLength cursor
           | otherwise = lineLength cursor - 1
               
+backSpace :: LineTracker -> LineTracker
+backSpace cursor
+    | col cursor == 0 && line cursor == 0 = cursor
+    | col cursor == 0 = undefined --merge above
+    | otherwise = cursor
+                  { lineLength = lineLength cursor - 1
+                  , col = col cursor - 1
+                  }
+
 newline :: LineTracker -> LineTracker
 newline cursor =  cursor {
                     lines = uLines',
@@ -80,6 +90,7 @@ decrease cursor = cursor {
                     lineLength = lineLength cursor + 1,
                     col = col cursor - 1
                     }
+
 
 asSeqCoOrd :: LineTracker -> Int
 asSeqCoOrd lTracker = offset lTracker + col lTracker
