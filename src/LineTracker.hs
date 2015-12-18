@@ -9,6 +9,7 @@ module LineTracker
     , asSeqCoOrd
     , lineLength
     , line
+    , lineStart
     , col
     , increase
     , decrease
@@ -40,12 +41,14 @@ changeLine i cursor
               , lineLength = newLen
               , lines = uLines
               }
-  where off    = prefixAt i uLines
-        newCol = min (max 0 $ newLen - 1)  (col cursor)
+  where newCol = min (max 0 $ newLen - 1)  (col cursor)
         newLen = valueAt i $ lines cursor
         -- update the line size at prev line
         uLines = updateAt (line cursor) (const $ lineLength cursor) (lines cursor)
-                 
+        off    = prefixAt i uLines         
+
+lineStart cursor = cursor {col = 0}
+                   
 cursorUp cursor = changeLine l cursor
   where l = line cursor - 1
 
@@ -60,19 +63,14 @@ cursorRight cursor = cursor { col = min (col cursor +1) len }
               
 newline :: LineTracker -> LineTracker
 newline cursor =  cursor {
-                    lines = uLines,
-                    col   = 0,
-                    line  = line cursor + 1,
-                    offset = off + split,
-                    lineLength = newLineLen
+                    lines = uLines',
+                    lineLength = split
                     }
-  where uLines     =
-            -- could probably clean this up
-            insertAt (line cursor) newLineLen
-                         $ updateAt (line cursor) (const split) (lines cursor)
+  --TODO Make this easier to read
+  where uLines     = updateAt (line cursor) (const split) (lines cursor)
+        uLines'    = insertAt (line cursor) newLineLen uLines
         split      = lineLength cursor - newLineLen
         newLineLen = lineLength cursor - col cursor
-        off        = prefixAt (line cursor) $ lines cursor
                   
 increase cursor = cursor {
                     lineLength = max 0 $ lineLength cursor + 1,

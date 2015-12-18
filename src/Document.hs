@@ -9,6 +9,7 @@ module Document
     , insertChar
     , output
     , getPos
+    , fromString
     )where
 
 import Prelude hiding (lines, splitAt)
@@ -30,8 +31,10 @@ moveLeft doc = doc{ lines = cursorLeft $ lines doc}
 moveRight doc = doc{ lines = cursorRight $ lines doc}
 
 newLine :: Document -> Document
-newLine doc = doc
-              { lines = newline $ lines doc}
+newLine doc =
+    let ls = lineStart $ cursorDown $ newline $ lines doc
+    in doc
+        { lines = ls}
 
 insertChar :: Document -> Char -> Document
 insertChar doc c
@@ -43,11 +46,18 @@ insertChar doc c
                  , text = insert (text doc) insertPoint c
                  }
         
+fromString :: String -> Document
+fromString [] = document
+fromString cs = go cs document
+  where go :: String -> Document -> Document
+        go [] doc  = doc
+        go (c:cs) doc = go cs (doc `insertChar` c)
+
 insert seq i a = (left |> a) >< right
   where (left, right) = splitAt i seq
 
 
-output = (mapM putChar) . text
+output = mapM putChar . text
 
 getPos doc = (line curs, col curs)
   where curs = lines doc
