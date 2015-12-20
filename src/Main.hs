@@ -8,6 +8,8 @@ main = do
   clearScreen
   setCursorPosition 0 0
   hSetEcho stdin False
+  hSetBuffering stdin NoBuffering
+  hSetBuffering stdout NoBuffering
   file <- readFile "src/Main.hs"
   update $ fromString file
 
