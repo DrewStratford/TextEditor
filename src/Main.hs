@@ -1,47 +1,72 @@
+import Data.Foldable
+    
 import System.IO 
 import System.Console.ANSI
 
-import Document
+import UI.HSCurses.Curses
+import UI.HSCurses.CursesHelper
+    
+import Data.TextBuffer
     
 main :: IO ()
 main = do
-  clearScreen
-  setCursorPosition 0 0
-  hSetEcho stdin False
-  hSetBuffering stdin NoBuffering
-  hSetBuffering stdout NoBuffering
   file <- readFile "src/Main.hs"
-  update $ fromString file
+  textBuffer <- return $ fromString file
+  initCurses
+  --raw True
+  --cBreak True
+  echo False
+  window <- initScr
+  
+  (loop window textBuffer)
+  endWin   -- closes everything
 
-update :: Document -> IO ()
+loop :: Window -> TextBuffer -> IO ()
+loop win text = do
+  input <- getch
+  move 0 0 
+  case decodeKey input of
+    KeyChar '\DEL' -> do
+                  t <- return $ remove text
+                  drawLine 800 (toString t)
+                  (x, y) <- return $ getLineCol t
+                  move y x
+                  wRefresh win
+                  loop win t
+    KeyEnter     -> do
+                  t <- return $ text `insert` '\n'
+                  drawLine 800 (toString t)
+                  (x, y) <- return $ getLineCol t
+                  move y x
+                  wRefresh win
+                  loop win t
+    KeyChar 'Q'  -> return ()
+    KeyChar  c   -> do
+                  t <- return $ text `insert` c
+                  drawLine 800 (toString t)
+                  (x, y) <- return $ getLineCol t
+                  move y x
+                  wRefresh win
+                  loop win t
+    _            -> loop win text
+                    
+{-
+update :: TextBuffer -> IO ()
 update doc = do
   c <- getChar
   case c of
-    'L' -> do
-           d <- return $ moveRight doc
-           (x, y) <- return $ getPos d
-           setCursorPosition x y
-           update d
-    'H' -> do
-           d <- return $ moveLeft doc
-           (x, y) <- return $ getPos d
-           setCursorPosition x y
-           update d
-    'K' -> do
-           d <- return $ moveUp doc
-           (x, y) <- return $ getPos d
-           setCursorPosition x y
-           update d
-    'J' -> do
-           d <- return $ moveDown doc
-           (x, y) <- return $ getPos d
-           setCursorPosition x y
-           update d
-    _   -> do
-           d <- return $ doc `insertChar` c
-           (x, y) <- return $ getPos d
+    '\DEL'   -> do
+           d <- return $ remove doc
            clearScreen
            setCursorPosition 0 0
            _ <- output d
-           setCursorPosition x y
+           hFlush stdout
            update d
+    _   -> do
+           d <- return $ doc `insert` c
+           clearScreen
+           setCursorPosition 0 0
+           _ <- output d
+           hFlush stdout
+           update d
+-}

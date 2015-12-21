@@ -1,15 +1,29 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module Data.TextBuffer
     ( TextBuffer
-    , splitAtIndex
     , module Data.FingerTree 
+    , insert
+    , remove
+    , jumpTo
+    , output
+    , fromString
+    , toString
+    , getLineCol
     ) where
 
 import Prelude hiding (getLine)
     
+import Data.Foldable
+    
 import Data.FingerTree
 import Data.Monoid
 
+-- sum of previous lines, line, Index
+instance Monoid (Int,Int,Int) where
+    mempty = (0,0,0)
+    (a,b,c) mappened (x,y,z)
+            | a < x = undefined
+            | otherwise (a+x,b+y,c+z)
 {-
   in the measure for this tree the right hand side is the amount
   of lines in the text while the left is the index
@@ -20,6 +34,11 @@ instance Measured (Sum Int, Sum Int) Char where
     measure '\n' = (Sum 0, Sum 1)
     measure  _   = (Sum 1, Sum 0)
 
+-- this is so we can extract coordinates
+-- using fmap & view
+instance Measured () (Int, Int) where
+    measure _ = ()
+                
 type Text = FingerTree (Sum Int, Sum Int) Char
 type TextBuffer = (Text, Text)
 
@@ -61,3 +80,29 @@ remove tb@(l,r) =
     EmptyR -> tb
     (left :> _) -> (left, r)
   where view = viewr l
+
+-- | jumps to the line & col in the buffer
+--  if not a valid position it will jump to the closest
+--  line & col below the argument
+jumpTo :: Int -> Int -> TextBuffer -> TextBuffer
+jumpTo line col (l,r) = splitAtLineCol line col (l >< r)
+
+
+--------------------------------------------------------
+-- output etc
+output :: TextBuffer -> IO ()
+output (l,r) = mapM_ putChar (l >< r)
+
+-- | finds the coordinates at the cursor,
+--   should be O(1) due to fmap being lazy but I'm not sure.
+getLineCol :: TextBuffer -> (Int, Int)
+getLineCol (text, _) =
+  case view of
+    EmptyR     -> (0,0)
+    (_ :> pos) -> pos
+  where view = viewr $ fmapWithPos (\(Sum l, Sum c) _ -> (l,c)) text
+
+fromString cs = (empty, fromList cs)
+
+toString (l,r) = toList (l >< r)
+
