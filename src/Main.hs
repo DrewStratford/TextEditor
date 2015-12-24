@@ -26,26 +26,41 @@ loop win text = do
   input <- getch
   move 0 0 
   case decodeKey input of
+    KeyChar 'H' -> do
+                  t <- return $ jumpToColRel (-1) text
+                  drawLine 800 (toString t)
+                  --(x, y) <- return $ getLineCol t
+                  --move y x
+                  wRefresh win
+                  loop win t
+
+    KeyChar 'L' -> do
+                  t <- return $ jumpToColRel 1 text
+                  drawLine 800 (toString t)
+                  --(x, y) <- return $ getLineCol t
+                  --move y x
+                  wRefresh win
+                  loop win t
     KeyChar '\DEL' -> do
                   t <- return $ remove text
                   drawLine 800 (toString t)
-                  (x, y) <- return $ getLineCol t
-                  move y x
+                  --(x, y) <- return $ getLineCol t
+                  --move y x
                   wRefresh win
                   loop win t
     KeyEnter     -> do
                   t <- return $ text `insert` '\n'
                   drawLine 800 (toString t)
-                  (x, y) <- return $ getLineCol t
-                  move y x
+                  --(x, y) <- return $ getLineCol t
+                  --move y x
                   wRefresh win
                   loop win t
     KeyChar 'Q'  -> return ()
     KeyChar  c   -> do
                   t <- return $ text `insert` c
                   drawLine 800 (toString t)
-                  (x, y) <- return $ getLineCol t
-                  move y x
+                  --(x, y) <- return $ getLineCol t
+                  --move y x
                   wRefresh win
                   loop win t
     _            -> loop win text

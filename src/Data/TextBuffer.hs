@@ -5,6 +5,8 @@ module Data.TextBuffer
     , insert
     , remove
     , jumpTo
+    , jumpToColRel
+    , jumpToLineRel
     , output
     , fromString
     , toString
@@ -18,12 +20,6 @@ import Data.Foldable
 import Data.FingerTree
 import Data.Monoid
 
--- sum of previous lines, line, Index
-instance Monoid (Int,Int,Int) where
-    mempty = (0,0,0)
-    (a,b,c) mappened (x,y,z)
-            | a < x = undefined
-            | otherwise (a+x,b+y,c+z)
 {-
   in the measure for this tree the right hand side is the amount
   of lines in the text while the left is the index
@@ -51,7 +47,7 @@ test2 = fromList "\nabcde"
 --------------------------------------------------------
 --helpers
 splitAtLineCol :: Int -> Int -> Text -> TextBuffer
-splitAtLineCol line col text = (left >< ll, right >< lr)
+splitAtLineCol line col text = (left >< ll, lr >< right)
   where (left, l, right) = getLine line text
         (ll,       lr  ) = splitAtIndex col l
                    
@@ -87,6 +83,46 @@ remove tb@(l,r) =
 jumpTo :: Int -> Int -> TextBuffer -> TextBuffer
 jumpTo line col (l,r) = splitAtLineCol line col (l >< r)
 
+jumpToCol :: Int -> TextBuffer -> TextBuffer
+jumpToCol colTo tb@(l,_) = jumpTo line colTo tb
+  where line = lineNum l
+               
+jumpToLine :: Int -> TextBuffer -> TextBuffer
+jumpToLine lineTo tb@(l,r) = jumpTo lineTo col tb
+  -- we must work out the col we're at
+  where atLine     = lineNum l
+        (_,line,_) = getLine atLine l
+        col        = size line + 1
+        
+{-
+  relative jumps from the current cursor point
+-}
+
+jumpToColRel :: Int -> TextBuffer -> TextBuffer
+jumpToColRel colD tb@(l,_) = jumpTo atLine (colD + col) tb
+  -- we must work out the col we're at
+  where atLine     = lineNum l
+        (_,line,_) = getLine atLine l
+        col        = size line + 1
+
+jumpToLineRel :: Int -> TextBuffer -> TextBuffer
+jumpToLineRel lineD tb@(l,_) = jumpTo (atLine + lineD) col tb
+  -- we must work out the col we're at
+  where atLine     = lineNum l
+        (_,line,_) = getLine atLine l
+        col        = size line + 1
+        
+--------------------------------------------------------
+-- querys etc
+viewMeasure :: Text -> (Int,Int)
+viewMeasure text =
+  case view of
+    EmptyR     -> (0,0)
+    (_:> v) -> v
+  where view = viewr $ fmapWithPos (\(Sum l, Sum r) _ -> (l,r)) text
+               
+size = fst . viewMeasure 
+lineNum = snd . viewMeasure
 
 --------------------------------------------------------
 -- output etc
@@ -106,3 +142,12 @@ fromString cs = (empty, fromList cs)
 
 toString (l,r) = toList (l >< r)
 
+f :: Text -> FingerTree () (Int,Int)
+f = fmapWithPos (\(Sum l, Sum c) _ -> (l,c)) 
+
+g :: FingerTree () (Int,Int) -> Int
+g t =
+    case view of
+      EmptyR -> 0
+      (_ :> (l,_)) -> l
+  where view = viewr t
