@@ -1,3 +1,5 @@
+{-# LANGUAGE PartialTypeSignatures #-}
+
 import Data.Foldable
     
 import System.IO 
@@ -13,72 +15,73 @@ main :: IO ()
 main = do
   file <- readFile "src/Main.hs"
   textBuffer <- return $ fromStrings $ lines file
-  hSetBuffering stdin NoBuffering
-  hSetEcho stdin False
-  (loop textBuffer)
+  
+  window <- initScr
+  echo False
+  --cBreak True
+  --intrFlush False
+  initCurses
+  (loop window textBuffer)
+  endWin
 
-loop :: TextBuffer -> IO ()
-loop text = do
-  input <- getChar
-  clearScreen 
-  cursPos 0 0 
+loop :: Window -> TextBuffer -> IO ()
+loop window text = do
+  --wclear window 
+  (l,c) <- return $ getLineCol text
+  (scrLine, scrCol) <- scrSize
+  wMove window (scrLine -1) 0
+  drawLine 40 $ "<" ++ show l ++ ":" ++ show c ++ ">"
+  wMove window 0 0 
+  drawSection window  text 0 0 (scrCol-1) (scrLine -1)
+  wMove window l c
+  wRefresh window
+  
+  input <- getCh
+
+  wMove window (scrLine -1) (min (scrCol -10) 40)
+  drawLine 40 $ show input
+  wRefresh window
+
   case input of
-    '\DEL'     -> do
-                  t <- return $ backspace text
-                  (x, y) <- return $ getLineCol t
-                  drawSection t 0 0 40 40
-                  cursPos x y
-                  loop t
-    '\n'       -> do
-      ---- fix this to split over lines
-                  t <- return $ newline text
-                  (x, y) <- return $ getLineCol t
-                  drawSection t 0 0 40 40
-                  cursPos x y
-                  loop t
-    'L'        -> do
-                  (x, y) <- return $ getLineCol text
-                  t <- return $ moveRight text
-                  drawSection t 0 0 40 40
-                  (x, y) <- return $ getLineCol text
-                  cursPos x y
-                  loop t
-    'K'        -> do
-                  (x, y) <- return $ getLineCol text
-                  t <- return $ text `moveLine` (x -1)
-                  drawSection t 0 0 40 40
-                  (x, y) <- return $ getLineCol text
-                  cursPos x y
-                  loop t
-    'J'        -> do
-                  (x, y) <- return $ getLineCol text
-                  t <- return $ text `moveLine` (x +1)
-                  drawSection t 0 0 40 40
-                  (x, y) <- return $ getLineCol text
-                  cursPos x y
-                  loop t
-    'H'        -> do
-                  (x, y) <- return $ getLineCol text
-                  t <- return $ moveLeft text
-                  drawSection t 0 0 40 40
-                  (x, y) <- return $ getLineCol text
-                  cursPos x y
-                  loop t
-                  
-    'Q'          -> return ()
-    c            -> do
-                  t <- return $ text `insert` c
-                  (x, y) <- return $ getLineCol t
-                  drawSection t 0 0 40 40
-                  cursPos x y
-                  loop t
+    (KeyChar '\DEL')    -> do
+                           let t = backspace text
+                           loop window t
+    (KeyChar '\n')      -> do
+                           t <- return $ newline text
+                           loop window t
+    (KeyChar 'L')       -> do
+                           (x, y) <- return $ getLineCol text
+                           t <- return $ text `moveCol` (y+1)
+                           loop window t
+    (KeyChar 'K')       -> do
+                           (x, y) <- return $ getLineCol text
+                           t <- return $ text `moveLine` (x -1)
+                           loop window t
+    (KeyChar 'J')       -> do
+                           (x, y) <- return $ getLineCol text
+                           t <- return $ text `moveLine` (x +1)
+                           loop window t
+    (KeyChar 'H')       -> do
+                           (x, y) <- return $ getLineCol text
+                           t <- return $ text `moveCol` (y-1)
+                           loop window t
+                           
+    (KeyChar 'Q')         -> return ()
+    (KeyChar c  )         -> do
+                          let t = text `insert` c
+                          loop window t
+    _                     -> loop window text
                     
-drawSection :: TextBuffer -> Int -> Int -> Int -> Int -> IO ()
-drawSection text x y width height = do
-  let lines = getLineSection y height text
-  mapM_ ((\cs -> mapM_ putChar cs >> print '\n' ) . toList . S.take width . S.drop x) lines
+drawSection :: Window -> TextBuffer -> Int -> Int -> Int -> Int -> IO ()
+drawSection window text x y width height = do
+  let lines :: [String]
+      lines =  toList $ fmap toList (getLineSection y height text)
+      go [] = return ()
+      go (s:ss) = do
+        (drawLine width . drop x) s
+        drawLine 1 "\n"
+        go ss
+  go lines
 
-cursPos :: Int -> Int -> IO ()
-cursPos l c = putStr $ "\ESC[" ++ show l ++ ";" ++ show c ++ "H"
 {-
 -}
