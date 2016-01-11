@@ -72,6 +72,8 @@ loop window text = do
                           loop window t
     _                     -> loop window text
                     
+-- | Draws the section of the specified TextBuffer onto the curses window
+--  curses window, TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: Window -> TextBuffer -> Int -> Int -> Int -> Int -> IO ()
 drawSection window text x y width height = do
   let lines :: [String]
