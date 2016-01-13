@@ -43,6 +43,11 @@ loop window text = do
   wRefresh window
 
   case input of
+    (KeyChar '\ESC')    -> do
+                           let (x,y)  = getLineCol text
+                           (x',y')   <- selectLoop window text
+                           let t = removeSection x y x' y' text
+                           loop window t
     (KeyChar '\DEL')    -> do
                            let t = backspace text
                            loop window t
@@ -71,7 +76,44 @@ loop window text = do
                           let t = text `insert` c
                           loop window t
     _                     -> loop window text
-                    
+                  
+
+selectLoop :: Window -> TextBuffer -> IO (Int, Int)
+selectLoop window text = do
+
+  (l,c) <- return $ getLineCol text
+  (scrLine, scrCol) <- scrSize
+  wMove window (scrLine -1) 0
+  drawLine 40 $ "<" ++ show l ++ ":" ++ show c ++ ">"
+  wMove window 0 0 
+  drawSection window  text 0 0 (scrCol-1) (scrLine -1)
+  wMove window l c
+  wRefresh window
+
+  input <- getCh
+
+  case input of
+    (KeyChar '\ESC') -> return $ getLineCol text
+  
+    (KeyChar 'L')    -> do
+                        (x, y) <- return $ getLineCol text
+                        t <- return $ text `moveCol` (y+1)
+                        selectLoop window t
+    (KeyChar 'K')    -> do
+                        (x, y) <- return $ getLineCol text
+                        t <- return $ text `moveLine` (x -1)
+                        selectLoop window t
+    (KeyChar 'J')    -> do
+                        (x, y) <- return $ getLineCol text
+                        t <- return $ text `moveLine` (x +1)
+                        selectLoop window t
+    (KeyChar 'H')    -> do
+                        (x, y) <- return $ getLineCol text
+                        t <- return $ text `moveCol` (y-1)
+                        selectLoop window t
+
+    _                -> selectLoop window text
+
 -- | Draws the section of the specified TextBuffer onto the curses window
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: Window -> TextBuffer -> Int -> Int -> Int -> Int -> IO ()

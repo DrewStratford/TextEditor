@@ -10,9 +10,13 @@ module Data.TextBuffer
     , getLineCol
     , fromStrings
     , getLineSection
+    , getSection
+    , removeSection
     ) where
 
 import Prelude hiding (drop, splitAt,length, lines, take)
+import Control.Arrow
+
 import Data.Sequence
 
 type Line = Seq Char
@@ -39,16 +43,18 @@ newline (l,il,ir,r) = (l |> il, empty, ir,r)
 moveCol (i,il,ir,r) col = (i,il',ir',r)
   where (il',ir')  = splitAt col (il><ir)
 
-moveLeft (i,il,ir,r) = (i,il',ir',r)
-  where (il',c) = splitAt (length il - 1) il
-        ir'     = c >< ir
+moveLeft text = moveCol text (col + 1) 
+  where (_, col) = getLineCol text
         
-moveRight (i,il,ir,r) = (i,il',ir',r)
-  where (c,ir') = splitAt 1 ir
-        il'     = il >< c
+moveRight text = moveCol text (col - 1) 
+  where (_, col) = getLineCol text
 
+moveLine :: TextBuffer -> Int -> TextBuffer
 moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) line) col
   where col = length il
+
+moveLineCol tb line col = moveCol (moveLine tb line) col
+
 ----------------------------------------------------------------------------
 splitAtCol :: Line -> Int -> (Line,Line)
 splitAtCol line col = splitAt col line
@@ -63,6 +69,12 @@ splitAtLine lines line =
    where (left,r) = splitAt line lines
          view     = viewl r
 
+splitAtLineCol :: TextBuffer -> Int -> Int -> (Seq Line,Seq Line)
+splitAtLineCol lines line col = (l |> il, ir <| r)
+  where (l,il,ir,r) = moveLineCol lines line col
+        
+        
+-- | gives the current position of the cursor
 getLineCol :: TextBuffer -> (Int,Int)
 getLineCol (l,il,_,_) = (length l, length il)
 
@@ -78,12 +90,25 @@ mergeWithPrev tb@(l, il, ir, r) =
 ----------------------------------------------------------------------------
 -- | draws the section of the textbuffer specified
 getLineSection :: Int -> Int -> TextBuffer -> Seq Line
-getLineSection x height textBuf =
-  let text = merge textBuf
-      (_,_,ir,r) = splitAtLine text x
-      (segment,_,_,_) = splitAtLine (ir <| r) height
-  in segment
+getLineSection x height = fst . splitAt (x + height) . snd . splitAt x . merge
 
+getSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
+              --TODO make this not rely on maxbound
+getSection line col line' col' = removeSection x' y' maxBound 0 >>> removeSection 0 0 x y
+
+  where (x, y)     = min (line,col) (line',col')
+        (x', y')   = max (line,col) (line',col')
+
+
+removeSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
+removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
+
+  where (x, y)     = min (line,col) (line',col')
+        (x', y')   = max (line,col) (line',col')
+
+        -- finds the sections to the left and right of specified section
+        (l,il,_,_) = moveLineCol text x y
+        (_,_,ir,r) = moveLineCol text x' y'
 ----------------------------------------------------------------------------
 --helpers
 merge (l,il,ir,r) = (l |> (il >< ir)) >< r
