@@ -12,10 +12,12 @@ module Data.TextBuffer
     , getLineSection
     , getSection
     , removeSection
+    , insertSection
     ) where
 
 import Prelude hiding (drop, splitAt,length, lines, take)
 import Control.Arrow
+import Data.Function
 
 import Data.Sequence
 
@@ -109,7 +111,22 @@ removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
         -- finds the sections to the left and right of specified section
         (l,il,_,_) = moveLineCol text x y
         (_,_,ir,r) = moveLineCol text x' y'
+
+
+insertSection :: TextBuffer -> TextBuffer -> TextBuffer
+insertSection text@(l, il, ir, r) insertee =
+  let (line, col)   = getLineCol text
+      (line', col') = endPoint insertee
+      text          = ((l |> il) >< merge insertee, ir, empty, r)
+  in  moveLineCol text (line + line') (col + col')
+    & mergeWithPrev
+    & \ text' -> moveLineCol text' (line+1) 0
+    & mergeWithPrev
+    
+
 ----------------------------------------------------------------------------
 --helpers
 merge (l,il,ir,r) = (l |> (il >< ir)) >< r
 
+-- gets the point at the end of the text buffer
+endPoint text@(l,_,_,r) = getLineCol $ moveLine text (length l + length r)

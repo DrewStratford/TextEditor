@@ -48,6 +48,9 @@ loop window text = do
                            (x',y')   <- selectLoop window text
                            let t = removeSection x y x' y' text
                            loop window t
+    (KeyChar 'P')       -> do
+                           let t = text `insertSection` fromStrings ["!test of!"]
+                           loop window t
     (KeyChar '\DEL')    -> do
                            let t = backspace text
                            loop window t
