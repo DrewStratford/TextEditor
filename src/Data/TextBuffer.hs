@@ -6,6 +6,8 @@ module Data.TextBuffer
     , moveCol
     , moveRight
     , moveLeft
+    , moveUp
+    , moveDown
     , moveLine
     , getLineCol
     , fromStrings
@@ -50,6 +52,13 @@ moveLeft text = moveCol text (col + 1)
         
 moveRight text = moveCol text (col - 1) 
   where (_, col) = getLineCol text
+
+
+moveDown text = moveLine text (line + 1) 
+  where (line, _) = getLineCol text
+
+moveUp text = moveLine text (line - 1) 
+  where (line, _) = getLineCol text
 
 moveLine :: TextBuffer -> Int -> TextBuffer
 moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) line) col

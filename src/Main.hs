@@ -1,6 +1,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 
 import Data.Foldable
+import Control.Monad.State
     
 import System.IO 
 import System.Console.ANSI
@@ -10,7 +11,37 @@ import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
     
 import Data.TextBuffer
-    
+
+-----------------------------------------------------------------------
+
+data TextDisplay = TextDisplay
+  { text    :: TextBuffer
+  , topLine :: Int
+  , window  :: Window
+  }
+  
+type TextM a= StateT TextDisplay IO a
+
+toText :: (TextBuffer -> TextBuffer) -> TextM ()
+toText f = do
+  t <- get
+  let text' = f $ text t
+  put t{ text = text' }
+  return ()
+
+output :: TextM()
+output = do
+  td <- get
+  let (l,c) = getLineCol $ text td
+      tLine = topLine td
+  (height, width) <- lift scrSize
+  lift $  do wMove (window td) 0 0 
+             drawSection (window td) (text td) (0 + tLine) 0 (width-1) (height-1)
+             wMove (window td) l c 
+             wRefresh $ window td
+
+-----------------------------------------------------------------------
+
 main :: IO ()
 main = do
   file <- readFile "src/Main.hs"
@@ -18,67 +49,45 @@ main = do
   
   window <- initScr
   echo False
-  --cBreak True
-  --intrFlush False
   initCurses
-  (loop window textBuffer)
+  let textDisplay = TextDisplay textBuffer 0 window
+  evalStateT loop textDisplay
   endWin
 
-loop :: Window -> TextBuffer -> IO ()
-loop window text = do
+loop :: TextM ()
+loop = do
   --wclear window 
-  (l,c) <- return $ getLineCol text
-  (scrLine, scrCol) <- scrSize
-  wMove window (scrLine -1) 0
-  drawLine 40 $ "<" ++ show l ++ ":" ++ show c ++ ">"
-  wMove window 0 0 
-  drawSection window  text 0 0 (scrCol-1) (scrLine -1)
-  wMove window l c
-  wRefresh window
-  
-  input <- getCh
-
-  wMove window (scrLine -1) (min (scrCol -10) 40)
-  drawLine 40 $ show input
-  wRefresh window
-
+  output
+  input <- lift getCh
   case input of
-    (KeyChar '\ESC')    -> do
-                           let (x,y)  = getLineCol text
-                           (x',y')   <- selectLoop window text
-                           let t = removeSection x y x' y' text
-                           loop window t
-    (KeyChar 'P')       -> do
-                           let t = text `insertSection` fromStrings ["!test of!"]
-                           loop window t
+    (KeyChar '\ESC')    -> loop 
+    (KeyChar 'P')       -> loop
+                           --let t = text `insertSection` fromStrings ["!test of!"]
+                           --loop window t
     (KeyChar '\DEL')    -> do
-                           let t = backspace text
-                           loop window t
+                           toText backspace
+                           loop
     (KeyChar '\n')      -> do
-                           t <- return $ newline text
-                           loop window t
+                           toText newline
+                           loop
     (KeyChar 'L')       -> do
-                           (x, y) <- return $ getLineCol text
-                           t <- return $ text `moveCol` (y+1)
-                           loop window t
+                           toText moveLeft
+                           loop
     (KeyChar 'K')       -> do
-                           (x, y) <- return $ getLineCol text
-                           t <- return $ text `moveLine` (x -1)
-                           loop window t
+                           toText moveUp 
+                           loop
     (KeyChar 'J')       -> do
-                           (x, y) <- return $ getLineCol text
-                           t <- return $ text `moveLine` (x +1)
-                           loop window t
+                           toText moveDown 
+                           loop
     (KeyChar 'H')       -> do
-                           (x, y) <- return $ getLineCol text
-                           t <- return $ text `moveCol` (y-1)
-                           loop window t
+                           toText moveRight
+                           loop
                            
     (KeyChar 'Q')         -> return ()
     (KeyChar c  )         -> do
-                          let t = text `insert` c
-                          loop window t
-    _                     -> loop window text
+                          toText (`insert` c)
+                          loop 
+    _                     -> loop 
                   
 
 selectLoop :: Window -> TextBuffer -> IO (Int, Int)
