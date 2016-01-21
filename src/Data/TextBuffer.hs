@@ -101,7 +101,7 @@ mergeWithPrev tb@(l, il, ir, r) =
 ----------------------------------------------------------------------------
 -- | draws the section of the textbuffer specified
 getLineSection :: Int -> Int -> TextBuffer -> Seq Line
-getLineSection x height = fst . splitAt (x + height) . snd . splitAt x . merge
+getLineSection x height = snd . splitAt x  . fst . splitAt (x + height) . merge
 
 getSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
               --TODO make this not rely on maxbound

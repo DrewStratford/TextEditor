@@ -17,10 +17,11 @@ import Data.TextBuffer
 data TextDisplay = TextDisplay
   { text    :: TextBuffer
   , topLine :: Int
+  , leftCol :: Int
   , window  :: Window
   }
   
-type TextM a= StateT TextDisplay IO a
+type TextM a = StateT TextDisplay IO a
 
 toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
@@ -31,15 +32,38 @@ toText f = do
 
 output :: TextM()
 output = do
+  scrollScreen
   td <- get
   let (l,c) = getLineCol $ text td
       tLine = topLine td
+      lCol  = leftCol td
   (height, width) <- lift scrSize
   lift $  do wMove (window td) 0 0 
-             drawSection (window td) (text td) (0 + tLine) 0 (width-1) (height-1)
-             wMove (window td) l c 
+             drawSection (window td) (text td) lCol tLine (width-1) (height-1)
+             wMove (window td) (l - tLine) (c - lCol)
              wRefresh $ window td
 
+-- | scrolls the screen based on cursor position
+scrollScreen :: TextM ()
+scrollScreen = do
+  td <- get
+  let (cursLine, cursCol) = getLineCol $ text td
+      tLine               = topLine td
+      lCol                = leftCol td
+
+  (scrLines, scrCols) <- lift scrSize
+
+  let tLine'
+       | cursLine > tLine + scrLines - 1 = tLine + (cursLine - (tLine +scrLines - 1))
+       | otherwise = min cursLine tLine
+      lCol'
+       | cursCol > lCol + scrCols - 1 = lCol + (cursCol - (lCol + scrCols - 1))
+       | otherwise = min cursCol lCol
+  
+  put td { topLine = tLine', leftCol = lCol'}
+  return ()
+
+  
 -----------------------------------------------------------------------
 
 main :: IO ()
@@ -50,7 +74,7 @@ main = do
   window <- initScr
   echo False
   initCurses
-  let textDisplay = TextDisplay textBuffer 0 window
+  let textDisplay = TextDisplay textBuffer 0 0 window
   evalStateT loop textDisplay
   endWin
 
@@ -90,41 +114,6 @@ loop = do
     _                     -> loop 
                   
 
-selectLoop :: Window -> TextBuffer -> IO (Int, Int)
-selectLoop window text = do
-
-  (l,c) <- return $ getLineCol text
-  (scrLine, scrCol) <- scrSize
-  wMove window (scrLine -1) 0
-  drawLine 40 $ "<" ++ show l ++ ":" ++ show c ++ ">"
-  wMove window 0 0 
-  drawSection window  text 0 0 (scrCol-1) (scrLine -1)
-  wMove window l c
-  wRefresh window
-
-  input <- getCh
-
-  case input of
-    (KeyChar '\ESC') -> return $ getLineCol text
-  
-    (KeyChar 'L')    -> do
-                        (x, y) <- return $ getLineCol text
-                        t <- return $ text `moveCol` (y+1)
-                        selectLoop window t
-    (KeyChar 'K')    -> do
-                        (x, y) <- return $ getLineCol text
-                        t <- return $ text `moveLine` (x -1)
-                        selectLoop window t
-    (KeyChar 'J')    -> do
-                        (x, y) <- return $ getLineCol text
-                        t <- return $ text `moveLine` (x +1)
-                        selectLoop window t
-    (KeyChar 'H')    -> do
-                        (x, y) <- return $ getLineCol text
-                        t <- return $ text `moveCol` (y-1)
-                        selectLoop window t
-
-    _                -> selectLoop window text
 
 -- | Draws the section of the specified TextBuffer onto the curses window
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
@@ -139,5 +128,3 @@ drawSection window text x y width height = do
         go ss
   go lines
 
-{-
--}
