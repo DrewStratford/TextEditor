@@ -61,8 +61,10 @@ moveUp text = moveLine text (line - 1)
   where (line, _) = getLineCol text
 
 moveLine :: TextBuffer -> Int -> TextBuffer
-moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) line) col
+moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) lineActual) col
   where col = length il
+        -- we stop the cursor from going out of bounds
+        lineActual = min (lineAmount tb - 1) line
 
 moveLineCol tb line col = moveCol (moveLine tb line) col
 
@@ -136,6 +138,8 @@ insertSection text@(l, il, ir, r) insertee =
 ----------------------------------------------------------------------------
 --helpers
 merge (l,il,ir,r) = (l |> (il >< ir)) >< r
+
+lineAmount (l,_,_,r) = length l + length r + 1
 
 -- gets the point at the end of the text buffer
 endPoint text@(l,_,_,r) = getLineCol $ moveLine text (length l + length r)

@@ -2,10 +2,9 @@
 
 import Data.Foldable
 import Control.Monad.State
+import qualified Data.Map as M
     
-import System.IO 
-import System.Console.ANSI
-import qualified Data.Sequence as S
+--import qualified Data.Sequence as S
 
 import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
@@ -13,12 +12,15 @@ import UI.HSCurses.CursesHelper
 import Data.TextBuffer
 
 -----------------------------------------------------------------------
+data Mode = Insert | Normal | Command | Visual
 
 data TextDisplay = TextDisplay
   { text    :: TextBuffer
   , topLine :: Int
   , leftCol :: Int
   , window  :: Window
+  , mode    :: Mode
+  , marks   :: M.Map String (Int, Int)
   }
   
 type TextM a = StateT TextDisplay IO a
@@ -63,18 +65,32 @@ scrollScreen = do
   put td { topLine = tLine', leftCol = lCol'}
   return ()
 
-  
+setMode :: Mode -> TextM ()
+setMode newMode = do
+  td <- get
+  put td { mode = newMode }
+
+setMark :: (Int, Int) -> String -> TextM ()
+setMark pos label = do
+  td <- get
+  let ms = M.insert label pos (marks td) 
+  put td { marks = ms}
+
+getMark :: String -> TextM (Maybe (Int, Int))
+getMark label = do
+  td <- get
+  return $ label `M.lookup` marks td
 -----------------------------------------------------------------------
 
 main :: IO ()
 main = do
   file <- readFile "src/Main.hs"
-  textBuffer <- return $ fromStrings $ lines file
+  let textBuffer = fromStrings $ lines file
   
   window <- initScr
   echo False
   initCurses
-  let textDisplay = TextDisplay textBuffer 0 0 window
+  let textDisplay = TextDisplay textBuffer 0 0 window Normal M.empty
   evalStateT loop textDisplay
   endWin
 
@@ -83,37 +99,74 @@ loop = do
   --wclear window 
   output
   input <- lift getCh
+  textDisplay <- get
+  case mode textDisplay of
+    Normal  -> normalKeys input
+    Insert  -> insertKeys input
+    Visual  -> loop
+    Command -> loop
+
+insertKeys :: Key -> TextM ()
+insertKeys input = 
   case input of
-    (KeyChar '\ESC')    -> loop 
-    (KeyChar 'P')       -> loop
-                           --let t = text `insertSection` fromStrings ["!test of!"]
-                           --loop window t
+    (KeyChar '\ESC')    -> do
+                           setMode Normal
+                           loop 
     (KeyChar '\DEL')    -> do
                            toText backspace
                            loop
-    (KeyChar '\n')      -> do
-                           toText newline
+    (KeyChar c  )       -> do
+                           toText (`insert` c)
+                           loop 
+    _                   -> loop 
+
+normalKeys input = 
+  case input of
+    (KeyChar '\DEL')    -> do
+                           toText backspace
                            loop
-    (KeyChar 'L')       -> do
+    (KeyChar 'l')       -> do
                            toText moveLeft
                            loop
-    (KeyChar 'K')       -> do
+    (KeyChar 'k')       -> do
                            toText moveUp 
                            loop
-    (KeyChar 'J')       -> do
+    (KeyChar 'j')       -> do
                            toText moveDown 
                            loop
-    (KeyChar 'H')       -> do
+    (KeyChar 'h')       -> do
                            toText moveRight
                            loop
-                           
+    (KeyChar 'i')       -> do
+                           setMode Insert
+                           loop
+    (KeyChar 'v')       -> do
+                           setMode Visual
+                           loop
     (KeyChar 'Q')         -> return ()
-    (KeyChar c  )         -> do
-                          toText (`insert` c)
-                          loop 
     _                     -> loop 
                   
-
+visualKeys input =
+  case input of
+    (KeyChar '\ESC')    -> do
+                           setMode Normal
+                           loop 
+    (KeyChar 'l')       -> do
+                           toText moveLeft
+                           loop
+    (KeyChar 'k')       -> do
+                           toText moveUp 
+                           loop
+    (KeyChar 'j')       -> do
+                           toText moveDown 
+                           loop
+    (KeyChar 'h')       -> do
+                           toText moveRight
+                           loop
+    (KeyChar 'i')       -> do
+                           setMode Insert
+                           loop
+    _                   -> loop
 
 -- | Draws the section of the specified TextBuffer onto the curses window
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
