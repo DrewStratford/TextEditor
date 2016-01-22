@@ -1,153 +1,149 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module Data.TextBuffer
     ( TextBuffer
-    , module Data.FingerTree 
     , insert
-    , remove
-    , jumpTo
-    , jumpToColRel
-    , jumpToLineRel
-    , output
-    , fromString
-    , toString
+    , backspace
+    , newline
+    , moveLineCol
+    , moveCol
+    --, moveRight
+    --, moveLeft
+    --, moveUp
+    --, moveDown
+    --, moveLine
     , getLineCol
+    , fromStrings
+    , getLineSection
+    , getSection
+    , removeSection
+    , insertSection
     ) where
 
-import Prelude hiding (getLine)
+import Prelude hiding (drop, splitAt,length, lines, take)
+import Control.Arrow
+import Data.Function
+
+import Data.Sequence
+
+type Line = Seq Char
     
-import Data.Foldable
-    
-import Data.FingerTree
-import Data.Monoid
+type TextBuffer = ( Seq Line, Line, Line, Seq Line)
 
-{-
-  in the measure for this tree the right hand side is the amount
-  of lines in the text while the left is the index
--}
 
-instance Measured (Sum Int, Sum Int) Char where
-    -- to consider: should newlines count towards index?
-    measure '\n' = (Sum 0, Sum 1)
-    measure  _   = (Sum 1, Sum 0)
+-- | construction
+fromStrings :: [String] -> TextBuffer
+fromStrings ss = splitAtLine (fromList $ map fromList ss) 0
 
--- this is so we can extract coordinates
--- using fmap & view
-instance Measured () (Int, Int) where
-    measure _ = ()
-                
-type Text = FingerTree (Sum Int, Sum Int) Char
-type TextBuffer = (Text, Text)
+----------------------------------------------------------------------------
+insert (l,il,ir,r) c = (l,il |> c, ir,r)
 
---------------------------------------------------------
-test :: Text
-test = fromList "abcde\nfgh\nijk"
+backspace text@(l,il,ir,r) =
+  let (line, col) = getLineCol text
+      (il', _)    = splitAt (col - 1) il
+  in case col of
+       0 -> mergeWithPrev text
+       _ -> (l, il', ir, r)
 
-test2 = fromList "\nabcde"
+newline (l,il,ir,r) = (l |> il, empty, ir,r)
+
+moveCol (i,il,ir,r) col = (i,il',ir',r)
+  where (il',ir')  = splitAt col (il><ir)
+
+moveLeft text = moveCol text (col + 1) 
+  where (_, col) = getLineCol text
         
---------------------------------------------------------
---helpers
-splitAtLineCol :: Int -> Int -> Text -> TextBuffer
-splitAtLineCol line col text = (left >< ll, lr >< right)
-  where (left, l, right) = getLine line text
-        (ll,       lr  ) = splitAtIndex col l
-                   
--- | splits at the left of the index given
-splitAtIndex :: Int -> Text -> TextBuffer
-splitAtIndex index  = split (\(i,_) -> i > Sum index) 
+moveRight text = moveCol text (col - 1) 
+  where (_, col) = getLineCol text
 
-splitAtLine :: Int -> Text -> TextBuffer
-splitAtLine index = split (\(_,i) -> i >= Sum index)
 
--- | gives the (preceeding, line, proceeding) requested
---  where line is specified by the variable index
-getLine :: Int -> Text -> (Text,Text,Text)
-getLine index text = (left, line, right)
-  where (left, r) = splitAtLine index text
-        (line, right) = splitAtLine (index+1) r
+moveDown text = moveLine text (line + 1) 
+  where (line, _) = getLineCol text
 
---------------------------------------------------------
+moveUp text = moveLine text (line - 1) 
+  where (line, _) = getLineCol text
 
-insert :: TextBuffer -> Char -> TextBuffer
-insert (l,r) c = (l |> c, r)
+moveLine :: TextBuffer -> Int -> TextBuffer
+moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) lineActual) col
+  where col = length il
+        -- we stop the cursor from going out of bounds
+        lineActual = min (lineAmount tb - 1) line
 
-remove :: TextBuffer -> TextBuffer
-remove tb@(l,r) =
-  case view of
-    EmptyR -> tb
-    (left :> _) -> (left, r)
-  where view = viewr l
+moveLineCol tb line col = moveCol (moveLine tb line) col
 
--- | jumps to the line & col in the buffer
---  if not a valid position it will jump to the closest
---  line & col below the argument
-jumpTo :: Int -> Int -> TextBuffer -> TextBuffer
-jumpTo line col (l,r) = splitAtLineCol line col (l >< r)
+----------------------------------------------------------------------------
+splitAtCol :: Line -> Int -> (Line,Line)
+splitAtCol line col = splitAt col line
 
-jumpToCol :: Int -> TextBuffer -> TextBuffer
-jumpToCol colTo tb@(l,_) = jumpTo line colTo tb
-  where line = lineNum l
-               
-jumpToLine :: Int -> TextBuffer -> TextBuffer
-jumpToLine lineTo tb@(l,r) = jumpTo lineTo col tb
-  -- we must work out the col we're at
-  where atLine     = lineNum l
-        (_,line,_) = getLine atLine l
-        col        = size line + 1
-        
-{-
-  relative jumps from the current cursor point
--}
+splitAtLine :: Seq Line -> Int -> TextBuffer
+splitAtLine lines line =
 
-jumpToColRel :: Int -> TextBuffer -> TextBuffer
-jumpToColRel colD tb@(l,_) = jumpTo atLine (colD + col) tb
-  -- we must work out the col we're at
-  where atLine     = lineNum l
-        (_,line,_) = getLine atLine l
-        col        = size line + 1
-
-jumpToLineRel :: Int -> TextBuffer -> TextBuffer
-jumpToLineRel lineD tb@(l,_) = jumpTo (atLine + lineD) col tb
-  -- we must work out the col we're at
-  where atLine     = lineNum l
-        (_,line,_) = getLine atLine l
-        col        = size line + 1
-        
---------------------------------------------------------
--- querys etc
-viewMeasure :: Text -> (Int,Int)
-viewMeasure text =
-  case view of
-    EmptyR     -> (0,0)
-    (_:> v) -> v
-  where view = viewr $ fmapWithPos (\(Sum l, Sum r) _ -> (l,r)) text
-               
-size = fst . viewMeasure 
-lineNum = snd . viewMeasure
-
---------------------------------------------------------
--- output etc
-output :: TextBuffer -> IO ()
-output (l,r) = mapM_ putChar (l >< r)
-
--- | finds the coordinates at the cursor,
---   should be O(1) due to fmap being lazy but I'm not sure.
-getLineCol :: TextBuffer -> (Int, Int)
-getLineCol (text, _) =
-  case view of
-    EmptyR     -> (0,0)
-    (_ :> pos) -> pos
-  where view = viewr $ fmapWithPos (\(Sum l, Sum c) _ -> (l,c)) text
-
-fromString cs = (empty, fromList cs)
-
-toString (l,r) = toList (l >< r)
-
-f :: Text -> FingerTree () (Int,Int)
-f = fmapWithPos (\(Sum l, Sum c) _ -> (l,c)) 
-
-g :: FingerTree () (Int,Int) -> Int
-g t =
     case view of
-      EmptyR -> 0
-      (_ :> (l,_)) -> l
-  where view = viewr t
+      EmptyL -> (left, empty, empty, empty)
+      (ir :< right) -> (left, empty, ir, right)
+
+   where (left,r) = splitAt line lines
+         view     = viewl r
+
+splitAtLineCol :: TextBuffer -> Int -> Int -> (Seq Line,Seq Line)
+splitAtLineCol lines line col = (l |> il, ir <| r)
+  where (l,il,ir,r) = moveLineCol lines line col
+        
+        
+-- | gives the current position of the cursor
+getLineCol :: TextBuffer -> (Int,Int)
+getLineCol (l,il,_,_) = (length l, length il)
+
+-- | merges the current line with the previous line
+--   the current line is now the prev line + old current line
+mergeWithPrev :: TextBuffer -> TextBuffer
+mergeWithPrev tb@(l, il, ir, r) =
+  case viewr l of
+    EmptyR -> tb
+    (l' :> il') -> (l', il' >< il, ir, r)
+                     
+
+----------------------------------------------------------------------------
+-- | draws the section of the textbuffer specified
+getLineSection :: Int -> Int -> TextBuffer -> Seq Line
+getLineSection x height = snd . splitAt x  . fst . splitAt (x + height) . merge
+
+getSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
+              --TODO make this not rely on maxbound
+getSection line col line' col' = removeSection x' y' maxBound 0 >>> removeSection 0 0 x y
+
+  where (x, y)     = min (line,col) (line',col')
+        (x', y')   = max (line,col) (line',col')
+
+
+removeSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
+removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
+
+  where (x, y)     = min (line,col) (line',col')
+        (x', y')   = max (line,col) (line',col')
+
+        -- finds the sections to the left and right of specified section
+        (l,il,_,_) = moveLineCol text x y
+        (_,_,ir,r) = moveLineCol text x' y'
+
+
+insertSection :: TextBuffer -> TextBuffer -> TextBuffer
+insertSection text@(l, il, ir, r) insertee =
+  let (line, col)   = getLineCol text
+      (line', col') = endPoint insertee
+      text          = ((l |> il) >< merge insertee, ir, empty, r)
+  in  moveLineCol text (line + line') (col + col')
+    & mergeWithPrev
+    & \ text' -> moveLineCol text' (line+1) 0
+    & mergeWithPrev
+    
+
+----------------------------------------------------------------------------
+-- searching functions
+
+----------------------------------------------------------------------------
+--helpers
+merge (l,il,ir,r) = (l |> (il >< ir)) >< r
+
+lineAmount (l,_,_,r) = length l + length r + 1
+
+-- gets the point at the end of the text buffer
+endPoint text@(l,_,_,r) = getLineCol $ moveLine text (length l + length r)
