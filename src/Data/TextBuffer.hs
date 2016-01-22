@@ -3,12 +3,13 @@ module Data.TextBuffer
     , insert
     , backspace
     , newline
+    , moveLineCol
     , moveCol
-    , moveRight
-    , moveLeft
-    , moveUp
-    , moveDown
-    , moveLine
+    --, moveRight
+    --, moveLeft
+    --, moveUp
+    --, moveDown
+    --, moveLine
     , getLineCol
     , fromStrings
     , getLineSection
@@ -134,6 +135,9 @@ insertSection text@(l, il, ir, r) insertee =
     & \ text' -> moveLineCol text' (line+1) 0
     & mergeWithPrev
     
+
+----------------------------------------------------------------------------
+-- searching functions
 
 ----------------------------------------------------------------------------
 --helpers

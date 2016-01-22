@@ -15,12 +15,13 @@ import Data.TextBuffer
 data Mode = Insert | Normal | Command | Visual
 
 data TextDisplay = TextDisplay
-  { text    :: TextBuffer
-  , topLine :: Int
-  , leftCol :: Int
-  , window  :: Window
-  , mode    :: Mode
-  , marks   :: M.Map String (Int, Int)
+  { text     :: TextBuffer
+  , topLine  :: Int
+  , leftCol  :: Int
+  , window   :: Window
+  , mode     :: Mode
+  , marks    :: M.Map String (Int, Int)
+  , colAlign :: Int
   }
   
 type TextM a = StateT TextDisplay IO a
@@ -80,6 +81,24 @@ getMark :: String -> TextM (Maybe (Int, Int))
 getMark label = do
   td <- get
   return $ label `M.lookup` marks td
+
+moveColumn :: Int -> TextM ()
+moveColumn delta = do
+  td <- get
+  let (_,c) = getLineCol (text td)
+      col   = colAlign td
+  toText $ \t -> moveCol t (c + delta) 
+  td <- get
+  -- we change the column we "aim" for when moving lines
+  let (_,c) = getLineCol (text td)
+  put td { colAlign = c }
+  
+moveLine :: Int -> TextM ()
+moveLine delta = do
+  td <- get
+  let (l,_) = getLineCol (text td)
+      col   = colAlign td
+  toText $ \t -> moveLineCol t (l + delta) col
 -----------------------------------------------------------------------
 
 main :: IO ()
@@ -90,7 +109,7 @@ main = do
   window <- initScr
   echo False
   initCurses
-  let textDisplay = TextDisplay textBuffer 0 0 window Normal M.empty
+  let textDisplay = TextDisplay textBuffer 0 0 window Normal M.empty 0
   evalStateT loop textDisplay
   endWin
 
@@ -126,16 +145,16 @@ normalKeys input =
                            toText backspace
                            loop
     (KeyChar 'l')       -> do
-                           toText moveLeft
+                           moveColumn 1
                            loop
     (KeyChar 'k')       -> do
-                           toText moveUp 
+                           moveLine (-1)
                            loop
     (KeyChar 'j')       -> do
-                           toText moveDown 
+                           moveLine 1
                            loop
     (KeyChar 'h')       -> do
-                           toText moveRight
+                           moveColumn (-1)
                            loop
     (KeyChar 'i')       -> do
                            setMode Insert
