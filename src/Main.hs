@@ -1,19 +1,13 @@
+module Main where
 
-import Data.Foldable
 import Control.Monad.State
-import qualified Data.Map as M
     
---import qualified Data.Sequence as S
-
-import UI.HSCurses.Curses
-import UI.HSCurses.CursesHelper
     
 import Data.TextBuffer
 import TextMonad
 
 main :: IO ()
 main = do
-  file <- readFile "src/Main.hs"
   td <- createTextDisplay "src/Main.hs"
   runTextM loop td
 
@@ -21,7 +15,7 @@ loop :: TextM ()
 loop = do
   --wclear window 
   output
-  input <- lift getCh
+  input <- getInput
   textDisplay <- get
   case mode textDisplay of
     Normal  -> normalKeys input

@@ -132,7 +132,7 @@ insertSection text@(l, il, ir, r) insertee =
       text          = ((l |> il) >< merge insertee, ir, empty, r)
   in  moveLineCol text (line + line') (col + col')
     & mergeWithPrev
-    & \ text' -> moveLineCol text' (line+1) 0
+    & \ text' -> moveLineCol text' (line + 1) 0
     & mergeWithPrev
     
 

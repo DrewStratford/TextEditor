@@ -1,6 +1,7 @@
 module TextMonad
        ( Mode (..)
        , TextM
+       , Key(..)
        , toText
        , output
        , moveColumn
@@ -9,6 +10,7 @@ module TextMonad
        , mode
        , runTextM
        , createTextDisplay
+       , getInput
        ) where
 
 
@@ -21,6 +23,7 @@ import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
 
+--------------------------------------------------------------------------------------------
 data Mode = Insert | Normal | Command | Visual
 
 data TextDisplay = TextDisplay
@@ -35,6 +38,7 @@ data TextDisplay = TextDisplay
   
 type TextM a = StateT TextDisplay IO a
 
+--------------------------------------------------------------------------------------------
 toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
   t <- get
@@ -51,7 +55,7 @@ output = do
       lCol  = leftCol td
   (height, width) <- lift scrSize
   lift $  do wMove (window td) 0 0 
-             drawSection (window td) (text td) lCol tLine (width-1) (height-1)
+             drawSection (text td) lCol tLine (width-1) (height-1)
              wMove (window td) (l - tLine) (c - lCol)
              wRefresh $ window td
 
@@ -108,21 +112,26 @@ moveLine delta = do
   let (l,_) = getLineCol (text td)
       col   = colAlign td
   toText $ \t -> moveLineCol t (l + delta) col
+
+getInput :: TextM Key
+getInput = lift getCh
+
 -------------------------------------------------------------------------------------
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
-drawSection :: Window -> TextBuffer -> Int -> Int -> Int -> Int -> IO ()
-drawSection window text x y width height = do
+drawSection :: TextBuffer -> Int -> Int -> Int -> Int -> IO ()
+drawSection text x y width height = do
   let lines :: [String]
       lines =  toList $ fmap toList (getLineSection y height text)
-      go [] = return ()
-      go (s:ss) = do
+      go [] _ = return ()
+      go (s:ss) c= do
+        -- TODO: draw line nums properly
         (drawLine width . drop x) s
         drawLine 1 "\n"
-        go ss
-  go lines
+        go ss (c + 1)
+  go lines x
 
 -------------------------------------------------------------------------------------
-
+-- constructors etc
 createTextDisplay :: FilePath -> IO TextDisplay
 createTextDisplay filePath = do
   file <- readFile filePath
@@ -132,8 +141,10 @@ createTextDisplay filePath = do
 
 runTextM :: TextM a -> TextDisplay -> IO ()
 runTextM procedure textDisplay = do
-  echo False
+  --echo False
   initCurses
   evalStateT procedure textDisplay
   endWin
   
+--------------------------------------------------------------------------------------------
+ 
