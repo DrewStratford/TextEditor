@@ -4,7 +4,9 @@ module TextMonad
        , toText
        , output
        , moveColumn
+       , setMode
        , moveLine
+       , mode
        , runTextM
        , createTextDisplay
        ) where
