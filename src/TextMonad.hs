@@ -11,10 +11,16 @@ module TextMonad
        , runTextM
        , createTextDisplay
        , getInput
+       , setMark
+       , getMark
+       , insertClipBoard
+       , copyToClipBoard
+       , getLineColumn
        ) where
 
 
 import Data.Foldable
+import Data.Maybe
 import Control.Monad.State
 import qualified Data.Map as M
 
@@ -34,6 +40,7 @@ data TextDisplay = TextDisplay
   , mode     :: Mode
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
+  , clipBoard :: TextBuffer
   }
   
 type TextM a = StateT TextDisplay IO a
@@ -95,6 +102,25 @@ getMark label = do
   td <- get
   return $ label `M.lookup` marks td
 
+insertClipBoard :: TextM ()
+insertClipBoard = do
+  td <- get
+  let inserting = clipBoard td
+  toText (\t -> insertSection t inserting)
+
+copyToClipBoard :: TextM ()
+copyToClipBoard = do
+  td <- get
+  let ms = marks td
+  
+  let clip = fromMaybe (fromStrings ["copy didn't work"]) $ do
+              (sx, sy) <- "start" `M.lookup` ms
+              (ex, ey) <- "end" `M.lookup` ms
+              return $ getSection sx sy ex ey (text td)
+ 
+  put $ td { clipBoard = clip }
+    
+  
 moveColumn :: Int -> TextM ()
 moveColumn delta = do
   td <- get
@@ -116,6 +142,12 @@ moveLine delta = do
 getInput :: TextM Key
 getInput = lift getCh
 
+
+getLineColumn :: TextM (Int, Int)
+getLineColumn = do
+  td <- get
+  return $ getLineCol $ text td
+  
 -------------------------------------------------------------------------------------
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: TextBuffer -> Int -> Int -> Int -> Int -> IO ()
@@ -137,7 +169,7 @@ createTextDisplay filePath = do
   file <- readFile filePath
   let textBuffer = fromStrings $ lines file
   window <- initScr
-  return $ TextDisplay textBuffer 0 0 window Normal M.empty 0
+  return $ TextDisplay textBuffer 0 0 window Normal M.empty 0 (fromStrings [])
 
 runTextM :: TextM a -> TextDisplay -> IO ()
 runTextM procedure textDisplay = do
