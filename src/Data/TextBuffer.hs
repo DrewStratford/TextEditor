@@ -129,11 +129,11 @@ insertSection :: TextBuffer -> TextBuffer -> TextBuffer
 insertSection text@(l, il, ir, r) insertee =
   let (line, col)   = getLineCol text
       (line', col') = endPoint insertee
-      text          = ((l |> il) >< merge insertee, ir, empty, r)
+      il'           = adjust (il ><) 0 $ merge insertee
+      text          = (l >< il', ir, empty, r)
   in  moveLineCol text (line + line') (col + col')
     & mergeWithPrev
-    & \ text' -> moveLineCol text' (line + 1) 0
-    & mergeWithPrev
+      
     
 
 ----------------------------------------------------------------------------
