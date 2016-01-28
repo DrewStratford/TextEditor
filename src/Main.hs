@@ -85,6 +85,12 @@ visualKeys input =
     (KeyChar 'h')       -> do
                            moveColumn (-1)
                            loop
+    (KeyChar 'x')       -> do
+                           cursor <- getLineColumn
+                           setMark cursor "end"
+                           cutToClipBoard
+                           setMode Normal
+                           loop
     (KeyChar 'y')       -> do
                            cursor <- getLineColumn
                            setMark cursor "end"

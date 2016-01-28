@@ -130,9 +130,11 @@ insertSection text@(l, il, ir, r) insertee =
   let (line, col)   = getLineCol text
       (line', col') = endPoint insertee
       il'           = adjust (il ><) 0 $ merge insertee
-      text          = (l >< il', ir, empty, r)
-  in  moveLineCol text (line + line') (col + col')
+      text'         = (l >< il', ir, empty, r)
+  in  moveLineCol text' (line + line') (col + col')
     & mergeWithPrev
+      -- sets cursor to the end of the pasted section
+    & \tb -> moveLineCol tb (line + line') (col + col')
       
     
 
@@ -146,4 +148,7 @@ merge (l,il,ir,r) = (l |> (il >< ir)) >< r
 lineAmount (l,_,_,r) = length l + length r + 1
 
 -- gets the point at the end of the text buffer
-endPoint text@(l,_,_,r) = getLineCol $ moveLine text (length l + length r)
+endPoint = getLineCol . moveToEndOfLine . moveToEnd
+
+moveToEnd text@(l,_,_,r) = moveLine text (length l + length r)
+moveToEndOfLine text@(_,il,ir,_) = moveCol text (length il + length ir)

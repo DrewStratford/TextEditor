@@ -15,6 +15,7 @@ module TextMonad
        , getMark
        , insertClipBoard
        , copyToClipBoard
+       , cutToClipBoard
        , getLineColumn
        ) where
 
@@ -30,7 +31,7 @@ import UI.HSCurses.CursesHelper
 import Data.TextBuffer
 
 --------------------------------------------------------------------------------------------
-data Mode = Insert | Normal | Command | Visual
+data Mode = Insert | Normal | Command | Visual deriving (Show, Eq)
 
 data TextDisplay = TextDisplay
   { text     :: TextBuffer
@@ -63,6 +64,8 @@ output = do
   (height, width) <- lift scrSize
   lift $  do wMove (window td) 0 0 
              drawSection (text td) lCol tLine (width-1) (height-1)
+             wMove (window td) (height-1) 0
+             drawLine 80 $ show (mode td) ++ " <" ++ show l ++ ", " ++ show c ++ ">"
              wMove (window td) (l - tLine) (c - lCol)
              wRefresh $ window td
 
@@ -107,6 +110,21 @@ insertClipBoard = do
   td <- get
   let inserting = clipBoard td
   toText (\t -> insertSection t inserting)
+
+cutToClipBoard :: TextM ()
+cutToClipBoard = do
+  td <- get
+  let ms = marks td
+  
+  let (clip, text') =
+        fromMaybe (fromStrings [], text td) $ do
+              (sx, sy) <- "start" `M.lookup` ms
+              (ex, ey) <- "end" `M.lookup` ms
+              let cut = getSection sx sy ex ey (text td)
+              let t   = removeSection sx sy ex ey (text td)
+              Just (cut, t)
+ 
+  put $ td { clipBoard = clip, text = text' }
 
 copyToClipBoard :: TextM ()
 copyToClipBoard = do
