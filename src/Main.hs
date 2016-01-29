@@ -2,9 +2,13 @@ module Main where
 
 import Control.Monad.State
     
-    
+import qualified Data.Trie as T
 import Data.TextBuffer
 import TextMonad
+import KeyInput
+
+import UI.HSCurses.Curses hiding (Key(..))
+import UI.HSCurses.CursesHelper hiding (getKey)
 
 main :: IO ()
 main = do
@@ -13,24 +17,40 @@ main = do
 
 loop :: TextM ()
 loop = do
-  --wclear window 
+  --wclear window
   output
-  input <- getInput
+  input <- lift getKey
+  output
   textDisplay <- get
   case mode textDisplay of
     Normal  -> normalKeys input
     Insert  -> insertKeys input
     Visual  -> visualKeys input
     Command -> loop
-
+  
 insertKeys :: Key -> TextM ()
 insertKeys input = 
   case input of
-    (KeyChar '\ESC')    -> do
+    KeyEsc              -> do
                            setMode Normal
                            loop 
-    (KeyChar '\DEL')    -> do
+    KeyBackspace        -> do
                            toText backspace
+                           loop
+    KeyRight            -> do
+                           moveColumn 1
+                           loop
+    KeyUp               -> do
+                           moveLine (-1)
+                           loop
+    KeyDown             -> do
+                           moveLine 1
+                           loop
+    KeyLeft             -> do
+                           moveColumn (-1)
+                           loop
+    (KeyChar 'i')       -> do
+                           setMode Insert
                            loop
     (KeyChar c  )       -> do
                            toText (`insert` c)

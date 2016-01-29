@@ -1,7 +1,7 @@
 module TextMonad
        ( Mode (..)
        , TextM
-       , Key(..)
+--       , Key(..)
        , toText
        , output
        , moveColumn

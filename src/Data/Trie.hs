@@ -6,12 +6,15 @@ module Data.Trie
        , Trie
        , walkTrie
        , interactiveWalkTrie
+       , fromList
        ) where
 
+import Data.List hiding (insert)
 import Data.Maybe
 import qualified Data.Map.Strict as M
 import Control.Monad.Trans.Maybe
 import Control.Monad
+
 
 
 data Trie b  = Trie (M.Map Char (Maybe b, Trie b)) deriving (Functor, Eq, Show)
@@ -28,6 +31,9 @@ insert (c:cs) v trie@(Trie t)
         step    = maybe trie (insert cs v) $ stepTrie c trie
         oldV    = getValue trie c
         
+fromList :: [(String, v)] -> Trie v
+fromList = foldl' (\trie (s,v) -> insert s v trie) empty
+
 ---------------------------------------------------------------------------------------------------
 {-
    viewing and interacting with the trie
