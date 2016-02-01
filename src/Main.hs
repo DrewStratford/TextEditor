@@ -6,8 +6,6 @@ import Data.TextBuffer
 import TextMonad
 import KeyInput
 
-import UI.HSCurses.Curses hiding (Key(..))
-import UI.HSCurses.CursesHelper hiding (getKey)
 
 main :: IO ()
 main = do
@@ -19,7 +17,6 @@ loop = do
   output
   input <- lift getKey
   output
-  lift $ print (show input)
   textDisplay <- get
   case mode textDisplay of
     Normal  -> normalKeys input
@@ -31,8 +28,7 @@ insertKeys :: Key -> TextM ()
 insertKeys input = 
   case input of
     KeyEnter            -> do
-                           --toText newline
-                           setMode Normal
+                           toText newline
                            loop
     KeyEsc              -> do
                            setMode Normal
