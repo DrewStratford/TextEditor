@@ -27,16 +27,18 @@ data Key = KeyChar Char
 
 getKey :: IO Key
 getKey = do
-  hWaitForInput stdin (-1)
-  maybeKey <- interactiveWalkTrie tillEmpty inputTrie
+  _ <- hWaitForInput stdin (-1)
+  maybeKey <- tillEmpty >>= \x -> return $ walkTrie x inputTrie
   return $ fromMaybe Blank maybeKey
 
-tillEmpty :: IO (Maybe Char)
+tillEmpty :: IO String
 tillEmpty = do
   cont <- hReady stdin
   if cont
-     then fmap Just getChar
-     else return Nothing
+     then do
+          c <- getChar
+          fmap (c:) tillEmpty
+     else return ""
 
 inputTrie = fromList $ specialKeys ++ keyChars ++ [("jk", KeyCharSeq "jk")]
 

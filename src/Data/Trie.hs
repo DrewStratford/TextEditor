@@ -5,7 +5,6 @@ module Data.Trie
        , insert
        , Trie
        , walkTrie
-       , interactiveWalkTrie
        , fromList
        ) where
 
@@ -49,20 +48,6 @@ stepTrie :: Char -> Trie a -> Maybe (Trie a)
 stepTrie c (Trie map) =  fmap snd  (M.lookup c map)
 
 
-interactiveWalkTrie :: IO (Maybe Char) -> Trie a -> IO (Maybe a)
-interactiveWalkTrie getInput trie = ioWalkTrie getInput trie Nothing
-
-ioWalkTrie :: IO (Maybe Char) -> Trie a -> Maybe a -> IO (Maybe a)
-ioWalkTrie getInput trie prev = do
-  input <- getInput
-  case input of
-    Nothing -> return prev
-    (Just c') -> do 
-                let trie' = stepTrie c' trie
-                    prev' = getValue trie c'
-                case trie' of
-                  Nothing -> return Nothing
-                  (Just t) -> ioWalkTrie getInput t prev'
                 
 getValue :: Trie a -> Char -> Maybe a 
 getValue (Trie map) c = join $ fst <$> M.lookup c map
