@@ -2,7 +2,6 @@ module Main where
 
 import Control.Monad.State
     
-import qualified Data.Trie as T
 import Data.TextBuffer
 import TextMonad
 import KeyInput
@@ -20,6 +19,7 @@ loop = do
   output
   input <- lift getKey
   output
+  lift $ print (show input)
   textDisplay <- get
   case mode textDisplay of
     Normal  -> normalKeys input
@@ -30,12 +30,16 @@ loop = do
 insertKeys :: Key -> TextM ()
 insertKeys input = 
   case input of
-    KeyCharSeq "jk"     -> do
+    KeyEnter            -> do
+                           --toText newline
                            setMode Normal
-                           loop 
+                           loop
     KeyEsc              -> do
                            setMode Normal
                            loop 
+    KeyDelete           -> do
+                           toText delete
+                           loop
     KeyBackspace        -> do
                            toText backspace
                            loop
@@ -51,9 +55,6 @@ insertKeys input =
     KeyLeft             -> do
                            moveColumn (-1)
                            loop
-    (KeyChar 'i')       -> do
-                           setMode Insert
-                           loop
     (KeyChar c  )       -> do
                            toText (`insert` c)
                            loop 
@@ -61,9 +62,6 @@ insertKeys input =
 
 normalKeys input = 
   case input of
-    (KeyChar '\DEL')    -> do
-                           toText backspace
-                           loop
     (KeyChar 'l')       -> do
                            moveColumn 1
                            loop

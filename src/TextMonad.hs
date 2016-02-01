@@ -193,6 +193,7 @@ runTextM :: TextM a -> TextDisplay -> IO ()
 runTextM procedure textDisplay = do
   --echo False
   initCurses
+  raw True
   evalStateT procedure textDisplay
   endWin
   

@@ -47,8 +47,6 @@ walkTrie (c:cs) (Trie map) =  join $ fmap (walkTrie cs . snd) (M.lookup c map)
 stepTrie :: Char -> Trie a -> Maybe (Trie a)
 stepTrie c (Trie map) =  fmap snd  (M.lookup c map)
 
-
-                
 getValue :: Trie a -> Char -> Maybe a 
 getValue (Trie map) c = join $ fst <$> M.lookup c map
 

@@ -22,6 +22,7 @@ data Key = KeyChar Char
          | KeyPageUp
          | KeyPageDown
          | KeyEsc
+         | KeyEnter
          | Blank
          deriving (Show, Eq)
 
@@ -49,4 +50,4 @@ specialKeys =  [( "\ESC[3~", KeyDelete), ( "\ESC[B", KeyDown ),
                 ( "\ESC[C", KeyRight), ( "\ESC[D", KeyLeft ),
                 ( "\ESC[A", KeyUp ), ("\ESC", KeyEsc),
                 ("\DEL", KeyBackspace), ("\ESC[5~", KeyPageUp),
-                ("\ESC[6~", KeyPageDown)]
+                ("\ESC[6~", KeyPageDown), ("\n", KeyEnter)]

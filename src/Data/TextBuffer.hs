@@ -2,6 +2,7 @@ module Data.TextBuffer
     ( TextBuffer
     , insert
     , backspace
+    , delete
     , newline
     , moveLineCol
     , moveCol
@@ -34,32 +35,26 @@ fromStrings :: [String] -> TextBuffer
 fromStrings ss = splitAtLine (fromList $ map fromList ss) 0
 
 ----------------------------------------------------------------------------
+insert :: TextBuffer -> Char -> TextBuffer
 insert (l,il,ir,r) c = (l,il |> c, ir,r)
 
-backspace text@(l,il,ir,r) =
-  let (line, col) = getLineCol text
-      (il', _)    = splitAt (col - 1) il
-  in case col of
-       0 -> mergeWithPrev text
-       _ -> (l, il', ir, r)
+delete :: TextBuffer -> TextBuffer
+delete text@(l,il,ir,r)
+    | col == lineSize text = mergeWithNext text
+    | otherwise            = (l,il, drop 1 ir, r)
+  where (_, col) = getLineCol text
+
+backspace :: TextBuffer -> TextBuffer
+backspace text@(l,il,ir,r)
+    | col == 0 = mergeWithPrev text
+    | otherwise = (l, take (col - 1) il, ir, r)
+  where (_, col) = getLineCol text
+
 
 newline (l,il,ir,r) = (l |> il, empty, ir,r)
 
 moveCol (i,il,ir,r) col = (i,il',ir',r)
   where (il',ir')  = splitAt col (il><ir)
-
-moveLeft text = moveCol text (col + 1) 
-  where (_, col) = getLineCol text
-        
-moveRight text = moveCol text (col - 1) 
-  where (_, col) = getLineCol text
-
-
-moveDown text = moveLine text (line + 1) 
-  where (line, _) = getLineCol text
-
-moveUp text = moveLine text (line - 1) 
-  where (line, _) = getLineCol text
 
 moveLine :: TextBuffer -> Int -> TextBuffer
 moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) lineActual) col
@@ -67,11 +62,10 @@ moveLine tb@(_,il,_,_) line = moveCol (splitAtLine (merge tb) lineActual) col
         -- we stop the cursor from going out of bounds
         lineActual = min (lineAmount tb - 1) line
 
+moveLineCol :: TextBuffer -> Int -> Int -> TextBuffer
 moveLineCol tb line col = moveCol (moveLine tb line) col
 
 ----------------------------------------------------------------------------
-splitAtCol :: Line -> Int -> (Line,Line)
-splitAtCol line col = splitAt col line
 
 splitAtLine :: Seq Line -> Int -> TextBuffer
 splitAtLine lines line =
@@ -83,11 +77,6 @@ splitAtLine lines line =
    where (left,r) = splitAt line lines
          view     = viewl r
 
-splitAtLineCol :: TextBuffer -> Int -> Int -> (Seq Line,Seq Line)
-splitAtLineCol lines line col = (l |> il, ir <| r)
-  where (l,il,ir,r) = moveLineCol lines line col
-        
-        
 -- | gives the current position of the cursor
 getLineCol :: TextBuffer -> (Int,Int)
 getLineCol (l,il,_,_) = (length l, length il)
@@ -101,28 +90,34 @@ mergeWithPrev tb@(l, il, ir, r) =
     (l' :> il') -> (l', il' >< il, ir, r)
                      
 
+mergeWithNext :: TextBuffer -> TextBuffer
+mergeWithNext tb@(l, il, ir, r) =
+  case viewl r of
+    EmptyL -> tb
+    (ir' :< r') -> (l, il, ir >< ir', r')
+
 ----------------------------------------------------------------------------
 -- | draws the section of the textbuffer specified
 getLineSection :: Int -> Int -> TextBuffer -> Seq Line
 getLineSection x height = snd . splitAt x  . fst . splitAt (x + height) . merge
 
 getSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
-              --TODO make this not rely on maxbound
-getSection line col line' col' = removeSection x' y' maxBound 0 >>> removeSection 0 0 x y
-
-  where (x, y)     = min (line,col) (line',col')
-        (x', y')   = max (line,col) (line',col')
+getSection line col line' col'  text = removeSection 0 0 startLine startCol endRemoved
+  where (startLine, startCol) = min (line,col) (line',col')
+        (endLine, endCol)     = max (line,col) (line',col')
+        (textEndL, textEndC)  = endPoint text 
+        endRemoved            = removeSection endLine endCol textEndL textEndC text
 
 
 removeSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
 removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
 
-  where (x, y)     = min (line,col) (line',col')
-        (x', y')   = max (line,col) (line',col')
+  where (startLine, startCol) = min (line,col) (line',col')
+        (endLine, endCol)     = max (line,col) (line',col')
 
         -- finds the sections to the left and right of specified section
-        (l,il,_,_) = moveLineCol text x y
-        (_,_,ir,r) = moveLineCol text x' y'
+        (l,il,_,_) = moveLineCol text startLine startCol
+        (_,_,ir,r) = moveLineCol text endLine endCol
 
 
 insertSection :: TextBuffer -> TextBuffer -> TextBuffer
@@ -147,8 +142,14 @@ merge (l,il,ir,r) = (l |> (il >< ir)) >< r
 
 lineAmount (l,_,_,r) = length l + length r + 1
 
+lineSize (_, il, ir, _) = length il + length ir
+
 -- gets the point at the end of the text buffer
+endPoint :: TextBuffer -> (Int, Int)
 endPoint = getLineCol . moveToEndOfLine . moveToEnd
 
+moveToEnd :: TextBuffer -> TextBuffer
 moveToEnd text@(l,_,_,r) = moveLine text (length l + length r)
+
+moveToEndOfLine :: TextBuffer -> TextBuffer
 moveToEndOfLine text@(_,il,ir,_) = moveCol text (length il + length ir)
