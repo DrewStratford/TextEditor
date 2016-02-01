@@ -12,6 +12,7 @@ import Data.Maybe
 import Data.Trie
 
 data Key = KeyChar Char
+         | KeyCharSeq String
          | KeyUp
          | KeyDown
          | KeyLeft
@@ -37,9 +38,13 @@ tillEmpty = do
      then fmap Just getChar
      else return Nothing
 
-inputTrie = fromList $ specialKeys ++ keyChars
+inputTrie = fromList $ specialKeys ++ keyChars ++ [("jk", KeyCharSeq "jk")]
 
 keyChars :: [(String, Key)]
 keyChars = [([c], KeyChar c) | c <- [' ' .. '~']]
            
-specialKeys = reverse [( "\ESC[3~", KeyDelete), ( "\ESC[B", KeyDown ), ( "\ESC[C", KeyRight), ( "\ESC[D", KeyLeft ), ( "\ESC[A", KeyUp ), ("\ESC", KeyEsc), ("\DEL", KeyBackspace)]
+specialKeys =  [( "\ESC[3~", KeyDelete), ( "\ESC[B", KeyDown ),
+                ( "\ESC[C", KeyRight), ( "\ESC[D", KeyLeft ),
+                ( "\ESC[A", KeyUp ), ("\ESC", KeyEsc),
+                ("\DEL", KeyBackspace), ("\ESC[5~", KeyPageUp),
+                ("\ESC[6~", KeyPageDown)]

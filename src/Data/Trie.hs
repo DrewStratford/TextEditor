@@ -24,7 +24,7 @@ empty = Trie M.empty
 insert :: String -> a -> Trie a -> Trie a
 insert [] _ _ = error "cannot map value to empty string in Trie"
 insert [c] v (Trie t) = Trie $ M.insertWith merge c (Just v, Trie M.empty) t
-  -- ensures the subtree of potentially existing trees are not deleted.
+  -- ensures the subtree of potentially existing trees are not deleted. (left is new trie)
   where merge (v, Trie m) (_, Trie m2) = (v, Trie $ M.union m m2)
 insert (c:cs) v trie@(Trie t) 
     | c `M.member` t = Trie $ M.insert c (oldV,step) t

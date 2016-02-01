@@ -17,7 +17,6 @@ main = do
 
 loop :: TextM ()
 loop = do
-  --wclear window
   output
   input <- lift getKey
   output
@@ -27,10 +26,13 @@ loop = do
     Insert  -> insertKeys input
     Visual  -> visualKeys input
     Command -> loop
-  
+
 insertKeys :: Key -> TextM ()
 insertKeys input = 
   case input of
+    KeyCharSeq "jk"     -> do
+                           setMode Normal
+                           loop 
     KeyEsc              -> do
                            setMode Normal
                            loop 
