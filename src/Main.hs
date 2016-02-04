@@ -18,11 +18,11 @@ loop = do
   input <- lift getKey
   output
   textDisplay <- get
-  case mode textDisplay of
-    Normal  -> normalKeys input
-    Insert  -> insertKeys input
-    Visual  -> visualKeys input
-    Command -> loop
+  case getMode textDisplay of
+    Normal   -> normalKeys input
+    Insert   -> insertKeys input
+    Visual _ -> visualKeys input
+    Command  -> loop
 
 insertKeys :: Key -> TextM ()
 insertKeys input = 
@@ -74,9 +74,8 @@ normalKeys input =
                            setMode Insert
                            loop
     (KeyChar 'v')       -> do
-                           setMode Visual
-                           (l,c) <- getLineColumn
-                           setMark (l,c) "start"
+                           cursor <- getLineColumn
+                           setMode $ Visual cursor
                            loop
     (KeyChar 'p')       -> do
                            insertClipBoard
@@ -102,14 +101,10 @@ visualKeys input =
                            moveColumn (-1)
                            loop
     (KeyChar 'x')       -> do
-                           cursor <- getLineColumn
-                           setMark cursor "end"
                            cutToClipBoard
                            setMode Normal
                            loop
     (KeyChar 'y')       -> do
-                           cursor <- getLineColumn
-                           setMark cursor "end"
                            copyToClipBoard
                            setMode Normal
                            loop

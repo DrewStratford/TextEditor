@@ -7,7 +7,7 @@ module TextMonad
        , moveColumn
        , setMode
        , moveLine
-       , mode
+       , getMode
        , runTextM
        , createTextDisplay
        , getInput
@@ -31,14 +31,14 @@ import UI.HSCurses.CursesHelper
 import Data.TextBuffer
 
 --------------------------------------------------------------------------------------------
-data Mode = Insert | Normal | Command | Visual deriving (Show, Eq)
+data Mode = Insert | Normal | Command | Visual (Int, Int) deriving (Show, Eq)
 
 data TextDisplay = TextDisplay
   { text     :: TextBuffer
   , topLine  :: Int
   , leftCol  :: Int
   , window   :: Window
-  , mode     :: Mode
+  , getMode  :: Mode
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
   , clipBoard :: TextBuffer
@@ -65,11 +65,12 @@ output = do
   lift $  do wMove (window td) 0 0 
              drawSection (text td) lCol tLine (width-1) (height-1)
              wMove (window td) (height-1) 0
-             drawLine 80 $ show (mode td) ++ " <" ++ show l ++ ", " ++ show c ++ ">"
+             drawLine 80 $ show (getMode td) ++ " <" ++ show l ++ ", " ++ show c ++ ">"
              wMove (window td) (l - tLine) (c - lCol)
              wRefresh $ window td
 
 -- | scrolls the screen based on cursor position
+-- TODO: make this legible
 scrollScreen :: TextM ()
 scrollScreen = do
   td <- get
@@ -78,7 +79,8 @@ scrollScreen = do
       lCol                = leftCol td
 
   (scrLines, scrCols) <- lift scrSize
-
+  -- changes the top drawing section (determined by topline + height and leftCol + width)
+  -- if the cursor is outside of the box
   let tLine'
        | cursLine > tLine + scrLines - 1 = tLine + (cursLine - (tLine +scrLines - 1))
        | otherwise = min cursLine tLine
@@ -92,7 +94,7 @@ scrollScreen = do
 setMode :: Mode -> TextM ()
 setMode newMode = do
   td <- get
-  put td { mode = newMode }
+  put td { getMode = newMode }
 
 setMark :: (Int, Int) -> String -> TextM ()
 setMark pos label = do
@@ -109,34 +111,32 @@ insertClipBoard :: TextM ()
 insertClipBoard = do
   td <- get
   let inserting = clipBoard td
-  toText (\t -> insertSection t inserting)
+  toText (`insertSection` inserting)
 
 cutToClipBoard :: TextM ()
 cutToClipBoard = do
-  td <- get
-  let ms = marks td
+  td       <- get
+  endPoint <- getLineColumn
+  case getMode td of
+    Visual startPoint -> do
+      let text' = removeSection startPoint endPoint (text td)
+          clipBoard' = getSection startPoint endPoint (text td)
+      put $ td { text = text', clipBoard = clipBoard'}
+      
+    _ -> return ()
+     
   
-  let (clip, text') =
-        fromMaybe (fromStrings [], text td) $ do
-              (sx, sy) <- "start" `M.lookup` ms
-              (ex, ey) <- "end" `M.lookup` ms
-              let cut = getSection sx sy ex ey (text td)
-              let t   = removeSection sx sy ex ey (text td)
-              Just (cut, t)
  
-  put $ td { clipBoard = clip, text = text' }
 
 copyToClipBoard :: TextM ()
 copyToClipBoard = do
   td <- get
-  let ms = marks td
-  
-  let clip = fromMaybe (fromStrings ["copy didn't work"]) $ do
-              (sx, sy) <- "start" `M.lookup` ms
-              (ex, ey) <- "end" `M.lookup` ms
-              return $ getSection sx sy ex ey (text td)
- 
-  put $ td { clipBoard = clip }
+  startPoint <- getLineColumn
+  case getMode td of
+    Visual endPoint -> do
+      let clipBoard' = getSection startPoint endPoint (text td)
+      put $ td { clipBoard = clipBoard' }
+    _              -> return ()
     
   
 moveColumn :: Int -> TextM ()

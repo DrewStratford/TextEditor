@@ -97,20 +97,20 @@ mergeWithNext tb@(l, il, ir, r) =
     (ir' :< r') -> (l, il, ir >< ir', r')
 
 ----------------------------------------------------------------------------
--- | draws the section of the textbuffer specified
+-- | gets the section of the textbuffer specified
 getLineSection :: Int -> Int -> TextBuffer -> Seq Line
 getLineSection x height = snd . splitAt x  . fst . splitAt (x + height) . merge
 
-getSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
-getSection line col line' col'  text = removeSection 0 0 startLine startCol endRemoved
-  where (startLine, startCol) = min (line,col) (line',col')
-        (endLine, endCol)     = max (line,col) (line',col')
-        (textEndL, textEndC)  = endPoint text 
-        endRemoved            = removeSection endLine endCol textEndL textEndC text
+getSection :: (Int, Int) -> (Int, Int) -> TextBuffer -> TextBuffer
+getSection point1 point2  text = removeSection (0, 0) startPoint endRemoved
+  where startPoint = min point1 point2
+        midPoint   = max point1 point2
+        endPoint   = endLineCol text 
+        endRemoved = removeSection midPoint endPoint text
 
 
-removeSection :: Int -> Int -> Int -> Int -> TextBuffer -> TextBuffer
-removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
+removeSection :: (Int, Int) -> (Int, Int) -> TextBuffer -> TextBuffer
+removeSection (line, col) (line', col') text = moveLineCol (l, il, ir, r) line col
 
   where (startLine, startCol) = min (line,col) (line',col')
         (endLine, endCol)     = max (line,col) (line',col')
@@ -123,7 +123,7 @@ removeSection line col line' col' text = moveLineCol (l, il, ir, r) line col
 insertSection :: TextBuffer -> TextBuffer -> TextBuffer
 insertSection text@(l, il, ir, r) insertee =
   let (line, col)   = getLineCol text
-      (line', col') = endPoint insertee
+      (line', col') = endLineCol insertee
       il'           = adjust (il ><) 0 $ merge insertee
       text'         = (l >< il', ir, empty, r)
   in  moveLineCol text' (line + line') (col + col')
@@ -145,8 +145,8 @@ lineAmount (l,_,_,r) = length l + length r + 1
 lineSize (_, il, ir, _) = length il + length ir
 
 -- gets the point at the end of the text buffer
-endPoint :: TextBuffer -> (Int, Int)
-endPoint = getLineCol . moveToEndOfLine . moveToEnd
+endLineCol :: TextBuffer -> (Int, Int)
+endLineCol = getLineCol . moveToEndOfLine . moveToEnd
 
 moveToEnd :: TextBuffer -> TextBuffer
 moveToEnd text@(l,_,_,r) = moveLine text (length l + length r)
