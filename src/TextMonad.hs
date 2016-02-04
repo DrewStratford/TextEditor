@@ -51,7 +51,8 @@ toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
   t <- get
   let text' = f $ text t
-  put t{ text = text' }
+  (_, colAlign') <- getLineColumn
+  put t{ text = text' , colAlign = colAlign'}
   return ()
 
 output :: TextM()
@@ -141,14 +142,8 @@ copyToClipBoard = do
   
 moveColumn :: Int -> TextM ()
 moveColumn delta = do
-  td <- get
-  let (_,c) = getLineCol (text td)
-      col   = colAlign td
+  (_, c) <- getLineColumn
   toText $ \t -> moveCol t (c + delta) 
-  td <- get
-  -- we change the column we "aim" for when moving lines
-  let (_,c) = getLineCol (text td)
-  put td { colAlign = c }
   
 moveLine :: Int -> TextM ()
 moveLine delta = do
