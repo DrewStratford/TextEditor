@@ -26,7 +26,7 @@ insert [c] v (Trie t) = Trie $ M.insertWith merge c (Just v, Trie M.empty) t
   where merge (v, Trie m) (_, Trie m2) = (v, Trie $ M.union m m2)
 insert (c:cs) v trie@(Trie t) 
     | c `M.member` t = Trie $ M.insert c (oldV,step) t
-    | otherwise = Trie $ M.insert c subtree t
+    | otherwise      = Trie $ M.insert c subtree t
   where subtree = (Nothing, insert cs v empty)
         step    = maybe trie (insert cs v) $ stepTrie c trie
         oldV    = getValue trie c
@@ -56,3 +56,6 @@ test = do
   case c of
     't' -> return Nothing
     _   -> return $ Just c
+
+
+-----------------------------------------------------------------------------------------------------

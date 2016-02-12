@@ -3,7 +3,7 @@ module Main where
 import Control.Monad.State
     
 import Data.TextBuffer
-import TextMonad
+import Data.TextMonad
 import KeyInput
 
 
@@ -17,12 +17,24 @@ loop = do
   output
   input <- lift getKey
   output
-  textDisplay <- get
+  textDisplay <- getText
   case getMode textDisplay of
     Normal   -> normalKeys input
     Insert   -> insertKeys input
     Visual _ -> visualKeys input
     Command  -> loop
+-------------------------------------------------------------------
+data CommandType = External (Frame -> Frame) | Buffer (TextM ())
+
+type Frame = ([TextDisplay] , [TextDisplay])
+
+left :: Frame -> Frame
+left ([],as) = ([],as)
+left (a:as,bs) = (as, a:bs)
+
+right :: Frame -> Frame
+right (as,[]) = (as,[])
+right (as,b:bs) = (b:as, bs)
 
 insertKeys :: Key -> TextM ()
 insertKeys input = 
