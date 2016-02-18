@@ -59,6 +59,9 @@ insertKeys input =
     (KeyChar c  )       -> do
                            toText (`insert` c)
                            loop 
+    KeyTab              -> do
+                           toText (`insert` '\t')
+                           loop 
     _                   -> loop 
 
 normalKeys input = 

@@ -189,6 +189,7 @@ getLineColumn = do
   
 moveToEnd = toText moveToEndOfLine
 -------------------------------------------------------------------------------------
+            {- Drawing functions -}
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: TextBuffer -> Int -> Int -> Int -> Int -> IO ()
 drawSection text x y width height = do
@@ -202,7 +203,14 @@ drawSection text x y width height = do
         go ss (c + 1)
   go lines x
 
-  
+drawLine' :: Int -> String -> IO ()
+drawLine' _ [] = return ()
+drawLine' i (c:cs)
+  | i < 0 = return ()
+  | i < 4 && c /= '\t' = drawLine 1 [c] >> drawLine' (i - 4) cs
+  | otherwise = case c of
+    '\t' -> drawLine 4 "    " >> drawLine' (i - 4) cs
+    _    -> drawLine 1 [c] >> drawLine' (i - 1) cs
 
 
 -------------------------------------------------------------------------------------
