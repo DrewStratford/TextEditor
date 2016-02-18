@@ -6,11 +6,14 @@ import Data.TextBuffer
 import Data.TextMonad
 import KeyInput
 
+import Editor.Editor
+
 
 main :: IO ()
 main = do
   td <- createTextDisplay "src/Main.hs"
-  runTextM loop td
+  let ed = editor td
+  runTextM loop ed
 
 loop :: TextM ()
 loop = do

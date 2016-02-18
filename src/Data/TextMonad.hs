@@ -34,39 +34,30 @@ import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
+import Editor.Editor
+import Editor.TextDisplay
 
 --------------------------------------------------------------------------------------------
-data Mode = Insert | Normal | Command | Visual (Int, Int) deriving (Show, Eq)
 
-data TextDisplay = TextDisplay
-  { text     :: TextBuffer
-  , topLine  :: Int
-  , leftCol  :: Int
-  , window   :: Window
-  , getMode  :: Mode
-  , marks    :: M.Map String (Int, Int)
-  , colAlign :: Int
-  , clipBoard :: TextBuffer
-  }
   
 --TODO replace list with something more suitable
-type TextM a = StateT ([TextDisplay], TextDisplay) IO a
+type TextM a = StateT Editor IO a
 
 getText :: TextM TextDisplay
-getText = fmap snd get
+getText = fmap getTextDisplay get
 
-getBufferList :: TextM [TextDisplay]
-getBufferList = fmap fst get
+getBufferList :: TextM (M.Map String TextDisplay)
+getBufferList = fmap getBuffers get
 
 putText :: TextDisplay -> TextM ()
 putText text = do
-  bList <- getBufferList
-  put (bList, text)
+  editor <- get
+  put editor { getTextDisplay = text }
 
-putBufferList :: [TextDisplay] -> TextM ()
+putBufferList :: M.Map String TextDisplay -> TextM ()
 putBufferList bufferList = do
-  text <- getText
-  put (bufferList, text)
+  editor <- get
+  put editor { getBuffers = bufferList }
 
 --------------------------------------------------------------------------------------------
 toText :: (TextBuffer -> TextBuffer) -> TextM ()
@@ -140,13 +131,13 @@ getMark label = do
   return $ label `M.lookup` marks td
 
 insertClipBoard :: TextM ()
-insertClipBoard = do
+insertClipBoard = undefined {-do
   td <- getText
   let inserting = clipBoard td
-  toText (`insertSection` inserting)
+  toText (`insertSection` inserting) -}
 
 cutToClipBoard :: TextM ()
-cutToClipBoard = do
+cutToClipBoard = undefined {-do
   td       <- getText
   endPoint <- getLineColumn
   case getMode td of
@@ -155,13 +146,14 @@ cutToClipBoard = do
           clipBoard' = getSection startPoint endPoint (text td)
       putText $ td { text = text', clipBoard = clipBoard'}
       
-    _ -> return ()
+    _ -> return () -}
      
   
  
 
+
 copyToClipBoard :: TextM ()
-copyToClipBoard = do
+copyToClipBoard =undefined {- do
   td <- getText
   startPoint <- getLineColumn
   case getMode td of
@@ -169,7 +161,7 @@ copyToClipBoard = do
       let clipBoard' = getSection startPoint endPoint (text td)
       putText $ td { clipBoard = clipBoard' }
     _              -> return ()
-    
+   -} 
   
 moveColumn :: Int -> TextM ()
 moveColumn delta = do
@@ -211,19 +203,13 @@ drawSection text x y width height = do
 
 -------------------------------------------------------------------------------------
 -- constructors etc
-createTextDisplay :: FilePath -> IO TextDisplay
-createTextDisplay filePath = do
-  file <- readFile filePath
-  let textBuffer = fromStrings $ lines file
-  window <- initScr
-  return $ TextDisplay textBuffer 0 0 window Normal M.empty 0 (fromStrings [])
 
-runTextM :: TextM a -> TextDisplay -> IO ()
+runTextM :: TextM a -> Editor -> IO ()
 runTextM procedure textDisplay = do
   --echo False
   initCurses
   raw True
-  evalStateT procedure ([], textDisplay)
+  evalStateT procedure textDisplay
   endWin
   
 --------------------------------------------------------------------------------------------
