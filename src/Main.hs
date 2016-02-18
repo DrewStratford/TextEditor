@@ -27,17 +27,7 @@ loop = do
     Visual _ -> visualKeys input
     Command  -> loop
 -------------------------------------------------------------------
-data CommandType = External (Frame -> Frame) | Buffer (TextM ())
 
-type Frame = ([TextDisplay] , [TextDisplay])
-
-left :: Frame -> Frame
-left ([],as) = ([],as)
-left (a:as,bs) = (as, a:bs)
-
-right :: Frame -> Frame
-right (as,[]) = (as,[])
-right (as,b:bs) = (b:as, bs)
 
 insertKeys :: Key -> TextM ()
 insertKeys input = 

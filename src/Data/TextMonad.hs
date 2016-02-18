@@ -131,37 +131,39 @@ getMark label = do
   return $ label `M.lookup` marks td
 
 insertClipBoard :: TextM ()
-insertClipBoard = undefined {-do
-  td <- getText
-  let inserting = clipBoard td
-  toText (`insertSection` inserting) -}
+insertClipBoard = do
+  editor <- get
+  let inserting = getClipBoard editor
+  toText (`insertSection` inserting)
 
 cutToClipBoard :: TextM ()
-cutToClipBoard = undefined {-do
+cutToClipBoard = do
   td       <- getText
   endPoint <- getLineColumn
   case getMode td of
     Visual startPoint -> do
       let text' = removeSection startPoint endPoint (text td)
           clipBoard' = getSection startPoint endPoint (text td)
-      putText $ td { text = text', clipBoard = clipBoard'}
+      toText $ const text'
+      editor <- get
+      put editor { getClipBoard = clipBoard' }
       
-    _ -> return () -}
+    _ -> return ()
      
   
  
 
 
 copyToClipBoard :: TextM ()
-copyToClipBoard =undefined {- do
+copyToClipBoard = do
   td <- getText
+  editor <- get
   startPoint <- getLineColumn
   case getMode td of
     Visual endPoint -> do
       let clipBoard' = getSection startPoint endPoint (text td)
-      putText $ td { clipBoard = clipBoard' }
+      put editor { getClipBoard = clipBoard' }
     _              -> return ()
-   -} 
   
 moveColumn :: Int -> TextM ()
 moveColumn delta = do
