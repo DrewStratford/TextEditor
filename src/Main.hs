@@ -85,6 +85,13 @@ normalKeys input =
     (KeyChar 'p')       -> do
                            insertClipBoard
                            loop
+    (KeyChar '$')       -> do
+                           moveToEnd
+                           loop
+    (KeyChar '0')       -> do
+                           (_, c) <- getLineColumn
+                           moveColumn (-c)
+                           loop
     (KeyChar 'Q')         -> return ()
     _                     -> loop 
                   

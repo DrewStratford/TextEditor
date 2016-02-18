@@ -6,6 +6,7 @@ module Data.TextBuffer
     , newline
     , moveLineCol
     , moveCol
+    , moveToEndOfLine
     --, moveRight
     --, moveLeft
     --, moveUp

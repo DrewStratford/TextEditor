@@ -22,6 +22,7 @@ module Data.TextMonad
        , copyToClipBoard
        , cutToClipBoard
        , getLineColumn
+       , moveToEnd
        ) where
 
 
@@ -186,6 +187,7 @@ getLineColumn = do
   td <- getText
   return $ getLineCol $ text td
   
+moveToEnd = toText moveToEndOfLine
 -------------------------------------------------------------------------------------
 --  curses window, TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: TextBuffer -> Int -> Int -> Int -> Int -> IO ()
