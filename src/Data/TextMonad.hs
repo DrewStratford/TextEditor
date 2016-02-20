@@ -55,6 +55,11 @@ putText text = do
   editor <- get
   put editor { getTextDisplay = text }
 
+modifyBuffer :: (TextDisplay -> TextDisplay) -> TextM ()
+modifyBuffer f = do
+  b <- getText
+  putText $ f b
+
 putBufferList :: M.Map String TextDisplay -> TextM ()
 putBufferList bufferList = do
   editor <- get
@@ -63,14 +68,10 @@ putBufferList bufferList = do
 --------------------------------------------------------------------------------------------
 toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
-  t <- getText
-  let text' = f $ text t
-  putText t{ text = text'}
-  t <- getText
+  modifyBuffer $ \buff -> buff{ text = f $ text buff}
   -- set the cursor alignment
   (_, colAlign') <- getLineColumn
-  putText t{ colAlign = colAlign'}
-  return ()
+  modifyBuffer $ \buff -> buff{ colAlign = colAlign'}
 
 output :: TextM()
 output = do
@@ -118,15 +119,10 @@ scrollScreen = do
   return ()
 
 setMode :: Mode -> TextM ()
-setMode newMode = do
-  td <- getText
-  putText td { getMode = newMode }
+setMode newMode = modifyBuffer $ \buff -> buff { getMode = newMode }
 
 setMark :: (Int, Int) -> String -> TextM ()
-setMark pos label = do
-  td <- getText
-  let ms = M.insert label pos (marks td) 
-  putText td { marks = ms}
+setMark pos label = modifyBuffer $ \buff -> buff { marks = M.insert label pos (marks buff) }
 
 getMark :: String -> TextM (Maybe (Int, Int))
 getMark label = do
