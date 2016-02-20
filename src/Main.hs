@@ -3,7 +3,6 @@ module Main where
 import Control.Monad.State
     
 import Data.TextBuffer
-import Data.TextMonad
 import KeyInput
 
 import Editor.Editor
@@ -13,12 +12,12 @@ main :: IO ()
 main = do
   td <- createTextDisplay "src/Main.hs"
   let ed = editor td
-  runTextM loop ed
+  loop ed
 
-loop :: TextM ()
+loop :: IO ()
 loop = do
   output
-  input <- lift getKey
+  input <- getKey
   output
   textDisplay <- getText
   case getMode textDisplay of
@@ -29,7 +28,7 @@ loop = do
 -------------------------------------------------------------------
 
 
-insertKeys :: Key -> TextM ()
+insertKeys :: Key -> IO ()
 insertKeys input = 
   case input of
     KeyEnter            -> do

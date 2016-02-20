@@ -41,7 +41,6 @@ import Editor.TextDisplay
 --------------------------------------------------------------------------------------------
 
   
---TODO replace list with something more suitable
 type TextM a = StateT Editor IO a
 
 getText :: TextM TextDisplay
