@@ -3,7 +3,15 @@ module Editor.Editor
        , addSplit
        , storeText
        , editor 
-       )where
+       , setFrame
+       , setBuffers
+       , setTextDisplay
+       , setClipboard
+       , modifyFrame
+       , modifyBuffers            
+       , modifyTextDisplay
+       , modifyClipBoard
+       ) where
 
 import Editor.FrameList
 
@@ -19,6 +27,19 @@ data Editor = Editor
     , getTextDisplay      :: TextDisplay
     , getClipBoard :: TextBuffer
     }
+--------------------------------------------------------------------------------
+-- setters and modifiers
+setFrame        insertee editor = editor{ getFrame       = insertee }
+setBuffers      insertee editor = editor{ getBuffers     = insertee }
+setTextDisplay  insertee editor = editor{ getTextDisplay = insertee }
+setClipboard    insertee editor = editor{ getClipBoard   = insertee }
+
+modifyFrame       f editor = editor{ getFrame        = f $ getFrame editor }
+modifyBuffers     f editor = editor{ getBuffers      = f $ getBuffers editor }
+modifyTextDisplay f editor = editor{ getTextDisplay  = f $ getTextDisplay editor }
+modifyClipBoard   f editor = editor{ getClipBoard    = f $ getClipBoard editor }
+
+--------------------------------------------------------------------------------
 
 editor :: TextDisplay -> Editor
 editor text =

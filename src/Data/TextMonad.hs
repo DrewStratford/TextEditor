@@ -68,10 +68,10 @@ putBufferList bufferList = do
 --------------------------------------------------------------------------------------------
 toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
-  modifyBuffer $ \buff -> buff{ text = f $ text buff}
+  modifyBuffer $ modifyText f
   -- set the cursor alignment
   (_, colAlign') <- getLineColumn
-  modifyBuffer $ \buff -> buff{ colAlign = colAlign'}
+  modifyBuffer $ setColAlign colAlign'
 
 output :: TextM()
 output = do
@@ -174,8 +174,7 @@ moveLine delta = do
   td <- getText
   let (l,_) = getLineCol (text td)
       col   = colAlign td
-      text' = moveLineCol (text td) (l+delta) col
-  putText td { text = text'}
+  modifyBuffer $ modifyText $ \buff -> moveLineCol buff (l+delta) col
 
 getInput :: TextM Key
 getInput = lift getCh

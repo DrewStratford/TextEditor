@@ -7,6 +7,7 @@ module Data.TextBuffer
     , moveLineCol
     , moveCol
     , moveToEndOfLine
+    , merge
     --, moveRight
     --, moveLeft
     --, moveUp
