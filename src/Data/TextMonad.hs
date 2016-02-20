@@ -65,9 +65,11 @@ toText :: (TextBuffer -> TextBuffer) -> TextM ()
 toText f = do
   t <- getText
   let text' = f $ text t
+  putText t{ text = text'}
+  t <- getText
   -- set the cursor alignment
   (_, colAlign') <- getLineColumn
-  putText t{ text = text' , colAlign = colAlign'}
+  putText t{ colAlign = colAlign'}
   return ()
 
 output :: TextM()
@@ -176,7 +178,8 @@ moveLine delta = do
   td <- getText
   let (l,_) = getLineCol (text td)
       col   = colAlign td
-  toText $ \t -> moveLineCol t (l + delta) col
+      text' = moveLineCol (text td) (l+delta) col
+  putText td { text = text'}
 
 getInput :: TextM Key
 getInput = lift getCh
