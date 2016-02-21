@@ -1,4 +1,12 @@
-module Configuration where
+module Configuration
+       ( insertKeys
+       , normalKeys
+       , visualKeys
+       , lookUpKey
+       , lookUpKeyInsertMode
+       ) where
+
+import qualified Data.Map as M
 
 import Commands
 
@@ -35,13 +43,13 @@ normalKeys = makeKeyBinds
     , BindKey (KeyChar 'k') $ moveLine (-1)
     , BindKey (KeyChar 'j') $ moveLine 1
     , BindKey (KeyChar 'h') $ moveColumn (-1)
-    , BindKey (KeyChar 'i') $ modifyTextDisplay $ setGetMode Insert
+    , BindKey (KeyChar 'i') $ setGetMode Insert
     , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
                                     in  (modifyTextDisplay $ setGetMode $ Visual cursor) t
     , BindKey (KeyChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    , BindKey (KeyChar 'Q') $ modifyTextDisplay (setGetMode Command) 
+    , BindKey (KeyChar 'Q') $ (setGetMode Command) 
     ]
 
 visualKeys = makeKeyBinds
@@ -53,3 +61,13 @@ visualKeys = makeKeyBinds
     , BindKey (KeyChar 'x')    $ modifyTextDisplay (setGetMode Normal) . cutToClipBoard
     , BindKey (KeyChar 'y')    $ modifyTextDisplay (setGetMode Normal) . copyToClipBoard
     ]
+
+lookUpKey :: Key -> KeyBinds -> Maybe (Editor -> Editor)
+lookUpKey key bindings = runEditorCommand <$> M.lookup key bindings
+
+lookUpKeyInsertMode :: Key -> KeyBinds -> Maybe (Editor -> Editor)
+lookUpKeyInsertMode key bindings = case lookUpKey key bindings of
+  Nothing   -> case key of
+    (KeyChar c) -> Just $ toText (`insert` c)
+    _           -> Nothing
+  something -> something

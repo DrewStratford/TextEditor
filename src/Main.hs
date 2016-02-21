@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad.State
     
+import Data.Maybe
 import Data.TextBuffer
 import KeyInput
 
@@ -14,6 +15,7 @@ import Editor.TextDisplay
 import Data.EditorFunctions
 import Data.EditorFunctionsIO
 
+import Configuration
 
 main :: IO ()
 main = do
@@ -29,12 +31,14 @@ loop editor = do
   refresh
   input <- getKey
   case getMode $ getTextDisplay editor of
-    Normal   -> loop $ normalKeys input editor
-    Insert   -> loop $ insertKeys input editor
-    Visual _ -> loop $ visualKeys input editor
+    Normal   -> loop $ (fromMaybe  id $ lookUpKey input normalKeys) editor
+    Insert   -> loop $ (fromMaybe id $ lookUpKeyInsertMode input insertKeys) editor
+    Visual _ -> loop $ (fromMaybe id $ lookUpKey input visualKeys) editor
     Command  -> return ()
--------------------------------------------------------------------
 
+
+-------------------------------------------------------------------
+{-
 
 insertKeys :: Key -> Editor -> Editor
 insertKeys input = 
@@ -78,3 +82,4 @@ visualKeys input =
     (KeyChar 'y')       -> modifyTextDisplay (setGetMode Normal) . copyToClipBoard
     _                   -> id
 
+-}
