@@ -1,5 +1,6 @@
 module Data.EditorFunctionsIO
-       () where
+       ( output
+       ) where
 
 
 import Data.Foldable
@@ -57,25 +58,26 @@ drawLine' i (c:cs)
 output :: Editor -> IO ()
 output editor = do
   (height, width) <- scrSize
-  let editor = scrollScreen (height, width) editor
+  let editor' = scrollScreen (height, width) editor
       cursor@(l,c) = getLineCol $ text td
       tLine = topLine td
       lCol  = leftCol td
-      td    = getTextDisplay editor 
+      td    = getTextDisplay editor' 
       drawingSection = getSection (lCol,tLine) (height-1,width-1) (text td) 
   move 0 0 
   drawSection drawingSection (width -1)
-
+  
    -- if in visual mode draw highlighted area
   case getMode td of
     (Visual selectEnd@(sLine, sCol)) -> do
       let highlightSection = getSection cursor selectEnd (text td) 
       setStyle highlightStyle
-      wMove (window td) (min (sLine-tLine) (l-tLine)) (min (sCol-lCol) (c-lCol))
+      move (min (sLine-tLine) (l-tLine)) (min (sCol-lCol) (c-lCol))
       drawSection highlightSection (width-1)
       setStyle defaultCursesStyle
     _                 -> return ()
-  wMove (window td) l c
+ 
+  move l c
   refresh
 
 -- styles

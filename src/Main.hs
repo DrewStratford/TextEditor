@@ -5,122 +5,76 @@ import Control.Monad.State
 import Data.TextBuffer
 import KeyInput
 
+import UI.HSCurses.Curses hiding (getKey, Key(..))
+import UI.HSCurses.CursesHelper hiding (getKey, Key(..))
+
+
 import Editor.Editor
+import Editor.TextDisplay
+import Data.EditorFunctions
+import Data.EditorFunctionsIO
 
 
 main :: IO ()
 main = do
+  start
+  --raw True
   td <- createTextDisplay "src/Main.hs"
   let ed = editor td
   loop ed
+  endWin
 
-loop :: IO ()
-loop = do
-  output
+loop editor = do
+  output editor
+  refresh
   input <- getKey
-  output
-  textDisplay <- getText
-  case getMode textDisplay of
-    Normal   -> normalKeys input
-    Insert   -> insertKeys input
-    Visual _ -> visualKeys input
-    Command  -> loop
+  case getMode $ getTextDisplay editor of
+    Normal   -> loop $ normalKeys input editor
+    Insert   -> loop $ insertKeys input editor
+    Visual _ -> loop $ visualKeys input editor
+    Command  -> return ()
 -------------------------------------------------------------------
 
 
-insertKeys :: Key -> IO ()
+insertKeys :: Key -> Editor -> Editor
 insertKeys input = 
   case input of
-    KeyEnter            -> do
-                           toText newline
-                           loop
-    KeyEsc              -> do
-                           setMode Normal
-                           loop 
-    KeyDelete           -> do
-                           toText delete
-                           loop
-    KeyBackspace        -> do
-                           toText backspace
-                           loop
-    KeyRight            -> do
-                           moveColumn 1
-                           loop
-    KeyUp               -> do
-                           moveLine (-1)
-                           loop
-    KeyDown             -> do
-                           moveLine 1
-                           loop
-    KeyLeft             -> do
-                           moveColumn (-1)
-                           loop
-    (KeyChar c  )       -> do
-                           toText (`insert` c)
-                           loop 
-    KeyTab              -> do
-                           toText (`insert` '\t')
-                           loop 
-    _                   -> loop 
+    KeyEnter            -> toText newline 
+    KeyEsc              -> modifyTextDisplay (setGetMode Normal) 
+    KeyDelete           -> toText delete
+                           
+    KeyBackspace        -> toText backspace
+    KeyRight            -> moveColumn 1
+    KeyUp               -> modifyTextDisplay $ moveLine (-1)
+    KeyDown             -> modifyTextDisplay $ moveLine 1
+    KeyLeft             -> moveColumn (-1)
+    (KeyChar c  )       -> toText (`insert` c)
+    KeyTab              -> toText (`insert` '\t')
+    _                   -> id
 
 normalKeys input = 
   case input of
-    (KeyChar 'l')       -> do
-                           moveColumn 1
-                           loop
-    (KeyChar 'k')       -> do
-                           moveLine (-1)
-                           loop
-    (KeyChar 'j')       -> do
-                           moveLine 1
-                           loop
-    (KeyChar 'h')       -> do
-                           moveColumn (-1)
-                           loop
-    (KeyChar 'i')       -> do
-                           setMode Insert
-                           loop
-    (KeyChar 'v')       -> do
-                           cursor <- getLineColumn
-                           setMode $ Visual cursor
-                           loop
-    (KeyChar 'p')       -> do
-                           insertClipBoard
-                           loop
-    (KeyChar '$')       -> do
-                           moveToEnd
-                           loop
-    (KeyChar '0')       -> do
-                           (_, c) <- getLineColumn
-                           moveColumn (-c)
-                           loop
-    (KeyChar 'Q')         -> return ()
-    _                     -> loop 
+    (KeyChar 'l')       -> moveColumn 1
+    (KeyChar 'k')       -> modifyTextDisplay $ moveLine (-1)
+    (KeyChar 'j')       -> modifyTextDisplay $ moveLine 1
+    (KeyChar 'h')       -> moveColumn (-1)
+    (KeyChar 'i')       -> modifyTextDisplay $ setGetMode Insert
+    (KeyChar 'v')       -> \t -> let cursor = getLineColumn t
+                                 in  (modifyTextDisplay $ setGetMode $ Visual cursor) t
+    (KeyChar 'p')       -> insertClipBoard
+    (KeyChar '$')       -> id
+    (KeyChar '0')       -> \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    (KeyChar 'Q')       -> modifyTextDisplay (setGetMode Command) 
+    _                   -> id
                   
 visualKeys input =
   case input of
-    (KeyChar '\ESC')    -> do
-                           setMode Normal
-                           loop 
-    (KeyChar 'l')       -> do
-                           moveColumn 1
-                           loop
-    (KeyChar 'k')       -> do
-                           moveLine (-1)
-                           loop
-    (KeyChar 'j')       -> do
-                           moveLine 1
-                           loop
-    (KeyChar 'h')       -> do
-                           moveColumn (-1)
-                           loop
-    (KeyChar 'x')       -> do
-                           cutToClipBoard
-                           setMode Normal
-                           loop
-    (KeyChar 'y')       -> do
-                           copyToClipBoard
-                           setMode Normal
-                           loop
-    _                   -> loop
+    (KeyChar '\ESC')    -> modifyTextDisplay (setGetMode Normal)
+    (KeyChar 'l')       -> moveColumn 1
+    (KeyChar 'k')       -> modifyTextDisplay $ moveLine (-1)
+    (KeyChar 'j')       -> modifyTextDisplay $ moveLine 1
+    (KeyChar 'h')       -> moveColumn (-1)
+    (KeyChar 'x')       -> modifyTextDisplay (setGetMode Normal) . cutToClipBoard
+    (KeyChar 'y')       -> modifyTextDisplay (setGetMode Normal) . copyToClipBoard
+    _                   -> id
 

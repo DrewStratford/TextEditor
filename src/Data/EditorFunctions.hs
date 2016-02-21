@@ -1,12 +1,16 @@
-module Data.EditorFunctions where
+module Data.EditorFunctions
+       ( toText
+       , getLineColumn
+       , insertClipBoard
+       , copyToClipBoard
+       , cutToClipBoard
+       , moveLine
+       , moveColumn
+       ) where
 
 import Data.Foldable
 import Data.Maybe
-import Control.Monad.State
 import qualified Data.Map as M
-
-import UI.HSCurses.Curses
-import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
 import Editor.Editor
@@ -39,4 +43,11 @@ cutToClipBoard :: Editor -> Editor
 cutToClipBoard = doOnVisualRange go . copyToClipBoard
   where go start end = modifyTextDisplay (modifyText $ removeSection start end)
 
-        
+moveColumn delta editor = toText (`moveCol` (col + delta)) editor        
+  where (_, col) = getLineColumn editor
+
+
+moveLine :: Int -> TextDisplay -> TextDisplay
+moveLine delta textDis = modifyText (\t -> moveLineCol t (line + delta) col) textDis        
+  where (line,_) = getLineCol $ text textDis
+        col      = colAlign textDis

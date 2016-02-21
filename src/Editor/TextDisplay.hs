@@ -6,14 +6,12 @@ module Editor.TextDisplay
        , setText
        , setTopLine
        , setLeftCol
-       , setWindow
        , setGetMode
        , setMarks           
        , setColAlign
        , modifyText
        , modifyTopLine
        , modifyLeftCol
-       , modifyWindow
        , modifyGetMode
        , modifyMarks
        , modifyColAlign

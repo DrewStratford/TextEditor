@@ -1,6 +1,9 @@
-module Settings
+module Editor.Settings
        ( Settings (..)
        , defaultSettings
+       , setTabs
+       , setTabSize
+       , setLineNums
        )where
 
 import Data.Map
@@ -10,6 +13,10 @@ data Settings = Settings
     , tabSize :: Int
     , lineNums :: Bool
     } deriving (Show, Eq)
+
+setTabs i set = set { tabs = i }
+setTabSize i set = set { tabSize = i }
+setLineNums b set = set { lineNums = b }
 
 defaultSettings = Settings
    { tabs = False

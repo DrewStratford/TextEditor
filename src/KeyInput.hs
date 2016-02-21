@@ -25,7 +25,7 @@ data Key = KeyChar Char
          | KeyEnter
          | KeyTab
          | Blank
-         deriving (Show, Eq)
+         deriving (Show, Eq, Ord)
 
 getKey :: IO Key
 getKey = do
