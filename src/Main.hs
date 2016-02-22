@@ -1,9 +1,7 @@
 module Main where
 
-import Control.Monad.State
     
 import Data.Maybe
-import Data.TextBuffer
 import KeyInput
 
 import UI.HSCurses.Curses hiding (getKey, Key(..))
@@ -21,7 +19,7 @@ main :: IO ()
 main = do
   start
   --raw True
-  td <- createTextDisplay "src/Main.hs"
+  td <- createTextDisplay normalMode "src/Main.hs"
   let ed = editor td
   loop ed
   endWin
@@ -30,12 +28,15 @@ loop editor = do
   output editor
   refresh
   input <- getKey
+  let mode = getMode $ getTextDisplay editor
+  loop $ getBinding mode input editor
+  {-
   case getMode $ getTextDisplay editor of
     Normal   -> loop $ (fromMaybe  id $ lookUpKey input normalKeys) editor
     Insert   -> loop $ (fromMaybe id $ lookUpKeyInsertMode input insertKeys) editor
     Visual _ -> loop $ (fromMaybe id $ lookUpKey input visualKeys) editor
     Command  -> return ()
-
+  -}
 
 -------------------------------------------------------------------
 {-

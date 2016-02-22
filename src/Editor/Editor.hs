@@ -13,20 +13,12 @@ module Editor.Editor
        , modifyClipBoard
        ) where
 
+import qualified Data.Map as M
+
+import Editor.EditorTypes
 import Editor.FrameList
 
-import qualified Data.Map as M
---import Data.Maybe
-
 import Data.TextBuffer
-import Editor.TextDisplay
-
-data Editor = Editor
-    { getFrame     :: Frame
-    , getBuffers   :: M.Map String TextDisplay
-    , getTextDisplay      :: TextDisplay
-    , getClipBoard :: TextBuffer
-    }
 --------------------------------------------------------------------------------
 -- setters and modifiers
 setFrame        insertee editor = editor{ getFrame       = insertee }
@@ -41,7 +33,7 @@ modifyClipBoard   f editor = editor{ getClipBoard    = f $ getClipBoard editor }
 
 --------------------------------------------------------------------------------
 
-editor :: TextDisplay -> Editor
+editor :: TextDisplay -> Editor 
 editor text =
   let name = "Scratch"
       bs   = M.insert name text M.empty

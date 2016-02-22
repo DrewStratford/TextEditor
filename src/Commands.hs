@@ -1,4 +1,3 @@
-{-# LANGUAGE  ExistentialQuantification #-}
 module Commands
        ( BindKey (..)
        , KeyBinds
@@ -10,20 +9,11 @@ module Commands
 
 import qualified Data.Map as M
 
-import Editor.Editor
-import KeyInput
-
-data EditorCommand = forall c. (Command c) => EditorCommand (c -> c)
-
-class Command c where
-  run :: (c -> c) -> Editor -> Editor
+import Editor.EditorTypes
 
 runEditorCommand :: EditorCommand -> Editor -> Editor
 runEditorCommand (EditorCommand editCmd) = run editCmd
 
-data BindKey = forall c. Command c => BindKey Key (c -> c)
-
-type KeyBinds = M.Map Key EditorCommand 
 
 makeKeyBinds :: [BindKey] -> KeyBinds
 makeKeyBinds keys = go keys M.empty

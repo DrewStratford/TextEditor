@@ -1,6 +1,5 @@
 module Editor.TextDisplay
        ( TextDisplay (..)
-       , Mode (..)
        , createTextDisplay
        , textDisplay
        , setText
@@ -22,17 +21,8 @@ import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
+import Editor.EditorTypes
 
-data Mode = Insert | Normal | Command | Visual (Int, Int) deriving (Show, Eq)
-
-data TextDisplay = TextDisplay
-  { text     :: TextBuffer
-  , topLine  :: Int
-  , leftCol  :: Int
-  , getMode  :: Mode
-  , marks    :: M.Map String (Int, Int)
-  , colAlign :: Int
-  }
 
 
 
@@ -54,11 +44,11 @@ modifyGetMode  f textDis= textDis{ getMode  = f $ getMode  textDis }
 modifyMarks    f textDis= textDis{ marks    = f $ marks    textDis }
 modifyColAlign f textDis= textDis{ colAlign = f $ colAlign textDis }
 
-textDisplay :: TextDisplay
-textDisplay = TextDisplay (fromStrings []) 0 0 Normal M.empty 0
+textDisplay :: Mode -> TextDisplay
+textDisplay mode = TextDisplay (fromStrings []) 0 0 mode M.empty 0
 
-createTextDisplay :: FilePath -> IO TextDisplay
-createTextDisplay filePath = do
+createTextDisplay :: Mode -> FilePath -> IO TextDisplay
+createTextDisplay mode filePath = do
   file <- readFile filePath
   let textBuffer = fromStrings $ lines file
-  return $ TextDisplay textBuffer 0 0 Normal M.empty 0
+  return $ TextDisplay textBuffer 0 0 mode M.empty 0

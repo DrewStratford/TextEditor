@@ -12,6 +12,8 @@ import UI.HSCurses.Curses
 import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
+
+import Editor.EditorTypes
 import Editor.Editor
 import Editor.TextDisplay
 
@@ -68,15 +70,16 @@ output editor = do
   drawSection drawingSection (width -1)
   
    -- if in visual mode draw highlighted area
-  case getMode td of
-    (Visual selectEnd@(sLine, sCol)) -> do
+  
+  case startOfRange $ getMode td of
+    (Just selectEnd@(sLine, sCol)) -> do
       let highlightSection = getSection cursor selectEnd (text td) 
       setStyle highlightStyle
       move (min (sLine-tLine) (l-tLine)) (min (sCol-lCol) (c-lCol))
       drawSection highlightSection (width-1)
       setStyle defaultCursesStyle
     _                 -> return ()
- 
+  
   move l c
   refresh
 

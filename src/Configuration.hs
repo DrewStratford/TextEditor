@@ -1,9 +1,8 @@
 module Configuration
-       ( insertKeys
-       , normalKeys
-       , visualKeys
-       , lookUpKey
-       , lookUpKeyInsertMode
+       ( insertMode
+       , normalMode
+       , visualMode
+       , Editor.Modes.getBinding
        ) where
 
 import qualified Data.Map as M
@@ -12,6 +11,8 @@ import Commands
 
 import Editor.Editor
 import Editor.TextDisplay
+import Editor.Modes
+
 import Data.TextBuffer
 import Data.EditorFunctions
 import Data.EditorFunctionsIO
@@ -28,7 +29,7 @@ instance Command TextDisplay where
   
 insertKeys = makeKeyBinds
     [ BindKey KeyEnter     $ toText newline 
-    , BindKey KeyEsc       $ setGetMode Normal
+    , BindKey KeyEsc       $ setGetMode normalMode
     , BindKey KeyDelete    $ toText delete
     , BindKey KeyBackspace $ toText backspace
     , BindKey KeyRight     $ moveColumn 1
@@ -43,30 +44,31 @@ normalKeys = makeKeyBinds
     , BindKey (KeyChar 'k') $ moveLine (-1)
     , BindKey (KeyChar 'j') $ moveLine 1
     , BindKey (KeyChar 'h') $ moveColumn (-1)
-    , BindKey (KeyChar 'i') $ setGetMode Insert
+    , BindKey (KeyChar 'i') $ setGetMode insertMode
     , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
-                                    in  (modifyTextDisplay $ setGetMode $ Visual cursor) t
+                                    in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
     , BindKey (KeyChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    , BindKey (KeyChar 'Q') $ (setGetMode Command) 
+    --, BindKey (KeyChar 'Q') $ (setGetMode id) 
     ]
 
 visualKeys = makeKeyBinds
-    [ BindKey (KeyChar '\ESC') $ setGetMode Normal
+    [ BindKey (KeyChar '\ESC') $ setGetMode normalMode
     , BindKey (KeyChar 'l')    $ moveColumn 1
     , BindKey (KeyChar 'k')    $ moveLine (-1)
     , BindKey (KeyChar 'j')    $ moveLine 1
     , BindKey (KeyChar 'h')    $ moveColumn (-1)
-    , BindKey (KeyChar 'x')    $ modifyTextDisplay (setGetMode Normal) . cutToClipBoard
-    , BindKey (KeyChar 'y')    $ modifyTextDisplay (setGetMode Normal) . copyToClipBoard
+    , BindKey (KeyChar 'x')    $ modifyTextDisplay (setGetMode normalMode) . cutToClipBoard
+    , BindKey (KeyChar 'y')    $ modifyTextDisplay (setGetMode normalMode) . copyToClipBoard
     ]
 
-lookUpKey :: Key -> KeyBinds -> Maybe (Editor -> Editor)
-lookUpKey key bindings = runEditorCommand <$> M.lookup key bindings
+insertMode = Mode insertKeys lookUpKeyInsertMode Nothing
+normalMode = Mode normalKeys defaultLookUp Nothing
+visualMode cursor = Mode visualKeys defaultLookUp (Just cursor)
 
 lookUpKeyInsertMode :: Key -> KeyBinds -> Maybe (Editor -> Editor)
-lookUpKeyInsertMode key bindings = case lookUpKey key bindings of
+lookUpKeyInsertMode key bindings = case defaultLookUp key bindings of
   Nothing   -> case key of
     (KeyChar c) -> Just $ toText (`insert` c)
     _           -> Nothing
