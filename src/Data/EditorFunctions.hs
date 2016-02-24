@@ -19,6 +19,8 @@ import Editor.TextDisplay
 
 getLineColumn editor = getLineCol $ text $ getTextDisplay editor
 
+-- | modifies the textBuffer while also updating the column alignment (this
+--   should be used over modifyText in most cases
 toText :: (TextBuffer -> TextBuffer) -> Editor -> Editor
 toText f editor =
   (modifyTextDisplay $ setColAlign $ snd $ getLineColumn editor) $

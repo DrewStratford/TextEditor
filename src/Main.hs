@@ -26,6 +26,7 @@ loop editor = do
   input <- getKey
   let mode = getMode $ getTextDisplay editor
 
+  -- check for end or error
   case getBinding mode input editor of
     Nothing  -> return ()
     (Just a) -> loop a

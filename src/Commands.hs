@@ -15,6 +15,9 @@ runEditorCommand :: EditorCommand -> Editor -> Maybe Editor
 runEditorCommand (EditorCommand editCmd) = run editCmd
 
 
+{- | turns a list of key bindings into KeyBinds
+     which are used by Modes to store their KeyBinds
+-}
 makeKeyBinds :: [BindKey] -> KeyBinds
 makeKeyBinds keys = go keys M.empty
   where go :: [BindKey] -> KeyBinds -> KeyBinds
