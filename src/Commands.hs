@@ -11,7 +11,7 @@ import qualified Data.Map as M
 
 import Editor.EditorTypes
 
-runEditorCommand :: EditorCommand -> Editor -> Editor
+runEditorCommand :: EditorCommand -> Editor -> Maybe Editor
 runEditorCommand (EditorCommand editCmd) = run editCmd
 
 

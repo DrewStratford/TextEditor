@@ -21,11 +21,19 @@ import Editor.Settings
 
 import KeyInput
 
+-- this is to end the session (A bit hacky)
+type END = ()
+
+endSession = const ()
+
+instance Command () where
+  run a b= Nothing
+  
 instance Command Editor where
-  run = id
+  run cmd editor= Just $ cmd editor
 
 instance Command TextDisplay where
-  run = modifyTextDisplay
+  run cmd editor= Just $ modifyTextDisplay cmd editor
   
 insertKeys = makeKeyBinds
     [ BindKey KeyEnter     $ toText newline 
@@ -50,7 +58,7 @@ normalKeys = makeKeyBinds
     , BindKey (KeyChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    --, BindKey (KeyChar 'Q') $ (setGetMode id) 
+    , BindKey (KeyChar 'Q') $ endSession
     ]
 
 visualKeys = makeKeyBinds
@@ -67,9 +75,9 @@ insertMode = Mode insertKeys lookUpKeyInsertMode Nothing
 normalMode = Mode normalKeys defaultLookUp Nothing
 visualMode cursor = Mode visualKeys defaultLookUp (Just cursor)
 
-lookUpKeyInsertMode :: Key -> KeyBinds -> Maybe (Editor -> Editor)
+lookUpKeyInsertMode :: Key -> KeyBinds -> Maybe (Editor -> Maybe Editor)
 lookUpKeyInsertMode key bindings = case defaultLookUp key bindings of
   Nothing   -> case key of
-    (KeyChar c) -> Just $ toText (`insert` c)
+    (KeyChar c) -> Just $ \ed -> Just $ toText (`insert` c) ed
     _           -> Nothing
   something -> something
