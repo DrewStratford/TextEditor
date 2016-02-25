@@ -33,9 +33,7 @@ import Editor.EditorTypes
 setText      insertee textDis = textDis{ text     = insertee }
 setTopLine   insertee textDis = textDis{ topLine  = insertee }
 setLeftCol   insertee textDis = textDis{ leftCol  = insertee }
---setGetMode :: forall m. Mode m => m -> TextDisplay -> TextDisplay
-setGetMode   insertee textDis =
-  TextDisplay (text textDis) (topLine textDis) (leftCol textDis) insertee (marks textDis) (colAlign textDis)
+setGetMode   insertee textDis = textDis{ getMode  = insertee }
 setMarks     insertee textDis = textDis{ marks    = insertee }
 setColAlign  insertee textDis = textDis{ colAlign = insertee }
 

@@ -5,8 +5,9 @@ module Configuration
        , Editor.Modes.lookUpKey
        ) where
 
-import qualified Data.Map as M
 import Data.Maybe
+
+import Text.Read
 
 import Commands
 
@@ -17,9 +18,6 @@ import Editor.Modes
 
 import Data.TextBuffer
 import Data.EditorFunctions
-import Data.EditorFunctionsIO
-
-import Editor.Settings
 
 import KeyInput
 
@@ -77,13 +75,14 @@ visualKeys = makeKeyBinds
 ------------------------------------------------------------------------------------------------------
     -- modes
 
+-- | stores the amount of times command should be repeated as an int
 newtype NormalMode = NormalMode Int
 newtype InsertMode = InsertMode ()
 newtype VisualMode = VisualMode (Int, Int)
 
 insertMode :: InsertMode
 insertMode = InsertMode ()
-normalMode = NormalMode 1
+normalMode = NormalMode 0
 visualMode = undefined
 
 instance Mode InsertMode where
@@ -97,8 +96,19 @@ instance Mode InsertMode where
 
 instance Mode NormalMode where
   keyBindings _ = normalKeys
-  updateState key a = a 
-  getCommand key state = fromMaybe return (command)
+  updateState key (NormalMode i) = case key of
+    (KeyChar c) -> let num  :: Maybe Int
+                       num = readMaybe [c]
+                       shiftedLeft = i * 10
+                   in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
+    _           -> NormalMode 0
+  getCommand key state@(NormalMode reps) = fromMaybe return withRepetition
     where command = lookUpKey key state
+          withRepetition :: Maybe (Editor -> Maybe Editor)
+          withRepetition = composeN reps <$> command 
 
 
+-- should be somewhere else
+composeN :: Int -> (a -> Maybe a) -> a -> Maybe a 
+composeN 0 f a = f a
+composeN i f a =  composeN (i - 1) f a >>= \x ->  f x
