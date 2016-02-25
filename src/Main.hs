@@ -30,8 +30,6 @@ loop editor = do
       mode = getMode $ getTextDisplay editor
 
   -- check for end or error
-  case getKeyBinding input mode of
+  case getKeyBinding input mode editor of
     Nothing  -> return ()
-    (Just a) -> case a editor of
-      Nothing -> loop editor
-      (Just e) -> loop e
+    (Just a) -> loop a

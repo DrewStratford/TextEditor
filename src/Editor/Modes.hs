@@ -11,8 +11,8 @@ import Commands
 import KeyInput
 import Editor.EditorTypes
 
-getKeyBinding :: Key -> EditorMode -> Maybe (Editor -> Maybe Editor)
-getKeyBinding key (EditorMode mode) = lookUpKey key mode
+getKeyBinding :: Key -> EditorMode -> Editor -> Maybe Editor
+getKeyBinding key (EditorMode mode) = getCommand key mode
 
 lookUpKey :: Mode m => Key -> m -> Maybe (Editor -> Maybe Editor)
 lookUpKey key mode = fmap runEditorCommand editorCommand
