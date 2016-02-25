@@ -1,4 +1,4 @@
-{-# LANGUAGE  ExistentialQuantification #-}
+{-# LANGUAGE  ExistentialQuantification, Rank2Types #-}
 module Editor.EditorTypes where
 
 import qualified Data.Map as M
@@ -15,11 +15,13 @@ data TextDisplay = TextDisplay
   , getMode  :: Mode
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
+    -- holds vim style number arguments for commands
+  , numModifier :: Int
   }
 
 data Mode = Mode
   { keyBindings  :: KeyBinds
-  -- returns a maybe editor as we may bind a key (or command) to terminate program
+  -- returns a maybe editor as we may bind a key (or command) to terminate the program
   , keyLookUp    :: Key -> KeyBinds -> Maybe (Editor -> Maybe Editor)
   , startOfRange :: Maybe (Int, Int)
   }

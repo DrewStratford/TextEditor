@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Configuration
        ( insertMode
        , normalMode
