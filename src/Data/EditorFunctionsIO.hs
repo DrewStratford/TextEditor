@@ -71,6 +71,7 @@ output editor = do
   
    -- if in visual mode draw highlighted area
   
+  {-
   case startOfRange $ getMode td of
     (Just selectEnd@(sLine, sCol)) -> do
       let highlightSection = getSection cursor selectEnd (text td) 
@@ -79,6 +80,7 @@ output editor = do
       drawSection highlightSection (width-1)
       setStyle defaultCursesStyle
     _                 -> return ()
+-}
   
   move l c
   refresh

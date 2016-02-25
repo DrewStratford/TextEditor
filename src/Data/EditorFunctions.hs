@@ -2,8 +2,8 @@ module Data.EditorFunctions
        ( toText
        , getLineColumn
        , insertClipBoard
-       , copyToClipBoard
-       , cutToClipBoard
+--       , copyToClipBoard
+--       , cutToClipBoard
        , moveLine
        , moveColumn
        ) where
@@ -30,6 +30,7 @@ insertClipBoard :: Editor -> Editor
 insertClipBoard editor = toText (`insertSection` insertee) editor
   where insertee = getClipBoard editor
 
+        {-
 doOnVisualRange :: ((Int, Int) -> (Int, Int) -> Editor -> Editor) -> Editor -> Editor
 doOnVisualRange f editor =
   let startPoint = getLineColumn editor
@@ -45,6 +46,7 @@ copyToClipBoard = doOnVisualRange go
 cutToClipBoard :: Editor -> Editor
 cutToClipBoard = doOnVisualRange go . copyToClipBoard
   where go start end = modifyTextDisplay (modifyText $ removeSection start end)
+        -}
 
 moveColumn delta editor = toText (`moveCol` (col + delta)) editor        
   where (_, col) = getLineColumn editor

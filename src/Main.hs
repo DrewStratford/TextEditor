@@ -7,6 +7,8 @@ import UI.HSCurses.CursesHelper hiding (getKey)
 
 import Editor.Editor
 import Editor.TextDisplay
+import Editor.EditorTypes
+import Editor.Modes
 import Data.EditorFunctionsIO
 
 import Configuration
@@ -24,9 +26,12 @@ loop editor = do
   output editor
   refresh
   input <- getKey
-  let mode = getMode $ getTextDisplay editor
+  let mode :: EditorMode
+      mode = getMode $ getTextDisplay editor
 
   -- check for end or error
-  case getBinding mode input editor of
+  case getKeyBinding input mode of
     Nothing  -> return ()
-    (Just a) -> loop a
+    (Just a) -> case a editor of
+      Nothing -> loop editor
+      (Just e) -> loop e

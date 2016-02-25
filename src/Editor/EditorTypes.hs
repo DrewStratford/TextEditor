@@ -12,19 +12,19 @@ data TextDisplay = TextDisplay
   { text     :: TextBuffer
   , topLine  :: Int
   , leftCol  :: Int
-  , getMode  :: Mode
+  , getMode  :: EditorMode
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
-    -- holds vim style number arguments for commands
-  , numModifier :: Int
   }
 
-data Mode = Mode
-  { keyBindings  :: KeyBinds
-  -- returns a maybe editor as we may bind a key (or command) to terminate the program
-  , keyLookUp    :: Key -> KeyBinds -> Maybe (Editor -> Maybe Editor)
-  , startOfRange :: Maybe (Int, Int)
-  }
+class Mode a where
+   -- returns the appropriate command based on the state of c
+   getCommand :: Key -> a -> Editor -> Maybe Editor
+   -- updates the state based on the given key
+   updateState :: Key -> a -> a
+   keyBindings :: a -> KeyBinds
+
+data EditorMode = forall m. Mode m => EditorMode m
 
 data Editor = Editor 
   { getFrame       :: Frame

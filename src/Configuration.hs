@@ -1,16 +1,17 @@
-{-# LANGUAGE RankNTypes #-}
 module Configuration
        ( insertMode
        , normalMode
        , visualMode
-       , Editor.Modes.getBinding
+       , Editor.Modes.lookUpKey
        ) where
 
 import qualified Data.Map as M
+import Data.Maybe
 
 import Commands
 
 import Editor.Editor
+import Editor.EditorTypes
 import Editor.TextDisplay
 import Editor.Modes
 
@@ -38,7 +39,7 @@ instance Command TextDisplay where
   
 insertKeys = makeKeyBinds
     [ BindKey KeyEnter     $ toText newline 
-    , BindKey KeyEsc       $ setGetMode normalMode
+    , BindKey KeyEsc       $ setGetMode $ EditorMode normalMode
     , BindKey KeyDelete    $ toText delete
     , BindKey KeyBackspace $ toText backspace
     , BindKey KeyRight     $ moveColumn 1
@@ -53,15 +54,16 @@ normalKeys = makeKeyBinds
     , BindKey (KeyChar 'k') $ moveLine (-1)
     , BindKey (KeyChar 'j') $ moveLine 1
     , BindKey (KeyChar 'h') $ moveColumn (-1)
-    , BindKey (KeyChar 'i') $ setGetMode insertMode
-    , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
-                                    in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
+    , BindKey (KeyChar 'i') $ setGetMode $ EditorMode insertMode
+ --   , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
+  --                                  in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
     , BindKey (KeyChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
     , BindKey (KeyChar 'Q') $ endSession
     ]
 
+{-
 visualKeys = makeKeyBinds
     [ BindKey (KeyChar '\ESC') $ setGetMode normalMode
     , BindKey (KeyChar 'l')    $ moveColumn 1
@@ -71,14 +73,32 @@ visualKeys = makeKeyBinds
     , BindKey (KeyChar 'x')    $ modifyTextDisplay (setGetMode normalMode) . cutToClipBoard
     , BindKey (KeyChar 'y')    $ modifyTextDisplay (setGetMode normalMode) . copyToClipBoard
     ]
+-}
+------------------------------------------------------------------------------------------------------
+    -- modes
 
-insertMode = Mode insertKeys lookUpKeyInsertMode Nothing
-normalMode = Mode normalKeys defaultLookUp Nothing
-visualMode cursor = Mode visualKeys defaultLookUp (Just cursor)
+newtype NormalMode = NormalMode Int
+newtype InsertMode = InsertMode ()
+newtype VisualMode = VisualMode (Int, Int)
 
-lookUpKeyInsertMode :: Key -> KeyBinds -> Maybe (Editor -> Maybe Editor)
-lookUpKeyInsertMode key bindings = case defaultLookUp key bindings of
-  Nothing   -> case key of
-    (KeyChar c) -> Just $ \ed -> Just $ toText (`insert` c) ed
-    _           -> Nothing
-  something -> something
+insertMode :: InsertMode
+insertMode = InsertMode ()
+normalMode = NormalMode 1
+visualMode = undefined
+
+instance Mode InsertMode where
+  keyBindings _ = insertKeys
+  updateState _ a = a
+  getCommand key state = fromMaybe return command
+
+    where command = case key of
+            (KeyChar c) -> Just $ \ed -> Just $ toText (`insert` c) ed
+            _ -> lookUpKey key state
+
+instance Mode NormalMode where
+  keyBindings _ = normalKeys
+  updateState key a = a 
+  getCommand key state = fromMaybe return (command)
+    where command = lookUpKey key state
+
+

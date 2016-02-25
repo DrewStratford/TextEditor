@@ -1,7 +1,7 @@
 module Editor.Modes
        ( Mode (..)
-       , defaultLookUp
-       , getBinding
+       , lookUpKey
+       , getKeyBinding
        ) where
 
 import qualified Data.Map as M
@@ -11,12 +11,10 @@ import Commands
 import KeyInput
 import Editor.EditorTypes
 
+getKeyBinding :: Key -> EditorMode -> Maybe (Editor -> Maybe Editor)
+getKeyBinding key (EditorMode mode) = lookUpKey key mode
 
-getBinding :: Mode -> Key -> (Editor -> Maybe Editor)
-getBinding mode key = fromMaybe return (f key bindings)
-  where f        = keyLookUp mode
-        bindings = keyBindings mode
-
-
-defaultLookUp :: Key -> KeyBinds -> Maybe (Editor -> Maybe Editor)
-defaultLookUp key bindings = runEditorCommand <$> M.lookup key bindings
+lookUpKey :: Mode m => Key -> m -> Maybe (Editor -> Maybe Editor)
+lookUpKey key mode = fmap runEditorCommand editorCommand
+  where editorCommand = M.lookup key $ keyBindings mode
+        
