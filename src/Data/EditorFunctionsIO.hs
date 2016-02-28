@@ -1,5 +1,6 @@
 module Data.EditorFunctionsIO
        ( output
+       , drawSection
        ) where
 
 
@@ -15,6 +16,7 @@ import Data.TextBuffer
 
 import Editor.EditorTypes
 import Editor.Editor
+import Editor.Modes
 import Editor.TextDisplay
 
 
@@ -61,13 +63,15 @@ output :: Editor -> IO ()
 output editor = do
   (height, width) <- scrSize
   let editor' = scrollScreen (height, width) editor
-      cursor@(l,c) = getLineCol $ text td
+      (l,c) = getLineCol $ text td
       tLine = topLine td
       lCol  = leftCol td
       td    = getTextDisplay editor' 
       drawingSection = getSection (lCol,tLine) (height-1,width-1) (text td) 
   move 0 0 
   drawSection drawingSection (width -1)
+  let mode = getMode $ getTextDisplay editor'
+  drawMode mode (height,width)
   
    -- if in visual mode draw highlighted area
   

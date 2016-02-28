@@ -2,6 +2,7 @@ module Editor.Modes
        ( Mode (..)
        , lookUpKey
        , getKeyBinding
+       , drawMode
        ) where
 
 import qualified Data.Map as M
@@ -25,3 +26,4 @@ lookUpKey :: Mode m => Key -> m -> Maybe (Editor -> Maybe Editor)
 lookUpKey key mode = fmap runEditorCommand editorCommand
   where editorCommand = M.lookup key $ keyBindings mode
         
+drawMode (EditorMode mode) scrnSize = outputState scrnSize mode

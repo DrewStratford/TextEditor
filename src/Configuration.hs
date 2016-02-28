@@ -6,8 +6,9 @@ module Configuration
        ) where
 
 import Data.Maybe
-
 import Text.Read
+
+import UI.HSCurses.Curses hiding (Key (..))
 
 import Commands
 
@@ -18,6 +19,7 @@ import Editor.Modes
 
 import Data.TextBuffer
 import Data.EditorFunctions
+import Data.EditorFunctionsIO
 
 import KeyInput
 
@@ -58,9 +60,14 @@ normalKeys = makeKeyBinds
     , BindKey (KeyChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    , BindKey (KeyChar ';') $ setGetMode $ EditorMode commandMode
     , BindKey (KeyChar 'Q') $ endSession
     ]
 
+commandKeys = makeKeyBinds
+    [ BindKey KeyEnter     $ setGetMode $ EditorMode normalMode
+    , BindKey KeyEsc       $ setGetMode $ EditorMode normalMode
+    ]
 {-
 visualKeys = makeKeyBinds
     [ BindKey (KeyChar '\ESC') $ setGetMode normalMode
@@ -78,23 +85,26 @@ visualKeys = makeKeyBinds
 -- | stores the amount of times command should be repeated as an int
 newtype NormalMode = NormalMode Int
 newtype InsertMode = InsertMode ()
+newtype CommandMode = CommandMode TextBuffer
 newtype VisualMode = VisualMode (Int, Int)
 
-insertMode :: InsertMode
 insertMode = InsertMode ()
 normalMode = NormalMode 0
 visualMode = undefined
+commandMode = CommandMode $ fromStrings []
 
 instance Mode InsertMode where
+  outputState _ _ = return ()
   keyBindings _ = insertKeys
   updateState _ a = a
   getCommand key state = fromMaybe return command
-
+    -- if the key is a keyChar we "type" it otherwise check for keybind
     where command = case key of
             (KeyChar c) -> Just $ \ed -> Just $ toText (`insert` c) ed
             _ -> lookUpKey key state
 
 instance Mode NormalMode where
+  outputState _ _ = return ()
   keyBindings _ = normalKeys
   updateState key (NormalMode i) = case key of
     (KeyChar c) -> let num  :: Maybe Int
@@ -107,6 +117,16 @@ instance Mode NormalMode where
           withRepetition :: Maybe (Editor -> Maybe Editor)
           withRepetition = composeN reps <$> command 
 
+instance Mode CommandMode where
+  outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = do
+    move (scrnHeight - 1) 0
+    drawSection textBuf scrnWidth
+  keyBindings _ = commandKeys
+  updateState key (CommandMode a) = case key of
+    KeyChar c -> CommandMode $ a `insert` c
+    _         -> CommandMode a
+
+  getCommand key state = fromMaybe return (lookUpKey key state)
 
 -- should be somewhere else
 composeN :: Int -> (a -> Maybe a) -> a -> Maybe a 

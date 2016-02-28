@@ -23,6 +23,7 @@ class Mode a where
    -- updates the state based on the given key
    updateState :: Key -> a -> a
    keyBindings :: a -> KeyBinds
+   outputState :: (Int,Int) -> a -> IO ()
 
 data EditorMode = forall m. Mode m => EditorMode m
 
