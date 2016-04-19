@@ -114,7 +114,6 @@ instance Mode NormalMode where
     _           -> NormalMode 0
   getCommand key state@(NormalMode reps) = fromMaybe return withRepetition
     where command = lookUpKey key state
-          withRepetition :: Maybe (Editor -> Maybe Editor)
           withRepetition = composeN reps <$> command 
 
 instance Mode CommandMode where
