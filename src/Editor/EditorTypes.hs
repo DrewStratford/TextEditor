@@ -19,7 +19,7 @@ data TextDisplay = TextDisplay
 
 class Mode a where
    -- returns the appropriate command based on the state of a
-   getCommand :: Key -> a -> Editor -> Maybe Editor
+   getCommand :: Key -> a -> Editor -> Editor
    -- updates the state based on the given key
    updateState :: Key -> a -> a
    keyBindings :: a -> KeyBinds
@@ -33,6 +33,9 @@ data Editor = Editor
   , getBuffers     :: M.Map String TextDisplay
   , getTextDisplay :: TextDisplay
   , getClipBoard   :: TextBuffer
+  , getPendingIO   :: IO ()
+  -- marks whether we are finished editing
+  , isFinished     :: Bool
   }
 
 {- |
@@ -40,11 +43,9 @@ data Editor = Editor
    of the editor. Assuming 'c' is a component of the editor. Run should
    access the apropriate appropriate 'c' in the editor
 
-   The Maybe is to account for any error or termination that may occur
-   (will probably change to Either or something more appropriate.)
 -}
 class Command c where
-  run :: (c -> c) -> Editor -> Maybe Editor
+  run :: (c -> c) -> Editor -> Editor
 
 
 {-| Editor Command is used to group all functions that can be performed

@@ -23,19 +23,12 @@ import Data.EditorFunctionsIO
 
 import KeyInput
 
--- this is to end the session (A bit hacky)
-type END = ()
-
-endSession = const ()
-
-instance Command () where
-  run a b= Nothing
   
 instance Command Editor where
-  run cmd editor= Just $ cmd editor
+  run cmd = cmd 
 
 instance Command TextDisplay where
-  run cmd editor= Just $ modifyTextDisplay cmd editor
+  run =  modifyTextDisplay
   
 insertKeys = makeKeyBinds
     [ BindKey KeyEnter     $ toText newline 
@@ -61,7 +54,7 @@ normalKeys = makeKeyBinds
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
     , BindKey (KeyChar ';') $ setGetMode $ EditorMode commandMode
-    , BindKey (KeyChar 'Q') $ endSession
+    , BindKey (KeyChar 'Q')  endSession
     ]
 
 commandKeys = makeKeyBinds
@@ -97,11 +90,11 @@ instance Mode InsertMode where
   outputState _ _ = return ()
   keyBindings _ = insertKeys
   updateState _ a = a
-  getCommand key state = fromMaybe return command
+  getCommand key state = command
     -- if the key is a keyChar we "type" it otherwise check for keybind
     where command = case key of
-            (KeyChar c) -> Just $ \ed -> Just $ toText (`insert` c) ed
-            _ -> lookUpKey key state
+            (KeyChar c) -> toText (`insert` c)
+            _           -> fromMaybe id $ lookUpKey key state
 
 instance Mode NormalMode where
   outputState _ _ = return ()
@@ -112,9 +105,9 @@ instance Mode NormalMode where
                        shiftedLeft = i * 10
                    in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
     _           -> NormalMode 0
-  getCommand key state@(NormalMode reps) = fromMaybe return withRepetition
+  getCommand key state@(NormalMode reps) = fromMaybe id withRepetition
     where command = lookUpKey key state
-          withRepetition = composeN reps <$> command 
+          withRepetition = command 
 
 instance Mode CommandMode where
   outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = do
@@ -125,9 +118,11 @@ instance Mode CommandMode where
     KeyChar c -> CommandMode $ a `insert` c
     _         -> CommandMode a
 
-  getCommand key state = fromMaybe return (lookUpKey key state)
+  getCommand key state = fromMaybe id (lookUpKey key state)
 
 -- should be somewhere else
-composeN :: Int -> (a -> Maybe a) -> a -> Maybe a 
+  {-
+composeN :: Int -> (a -> a) -> a -> a 
 composeN 0 f a = f a
 composeN i f a =  composeN (i - 1) f a >>= \x ->  f x
+-}

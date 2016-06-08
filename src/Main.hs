@@ -19,17 +19,21 @@ main = do
   --raw True
   td <- createTextDisplay normalMode "src/Main.hs"
   let ed = editor td
-  loop ed
+  iterateTill isFinished waitforKey ed
   endWin
 
-loop editor = do
+iterateTill :: Monad m => (a -> Bool) -> (a -> m a) -> a -> m a
+iterateTill pred f a =
+  if pred a
+     then return a
+     else do a' <- f a
+             iterateTill pred f a'
+
+waitforKey editor = do
   output editor
   refresh
   input <- getKey
   let mode :: EditorMode
-      mode = getMode $ getTextDisplay editor
-
-  -- check for end or error
-  case getKeyBinding input mode editor of
-    Nothing  -> return ()
-    (Just a) -> loop a
+      mode    = getMode $ getTextDisplay editor 
+      editor' = getKeyBinding input mode editor
+  return editor'

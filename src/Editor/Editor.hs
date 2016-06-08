@@ -11,26 +11,33 @@ module Editor.Editor
        , modifyBuffers            
        , modifyTextDisplay
        , modifyClipBoard
+       , setPendingIO
+       , modifyPendingIO
+       , endSession
        ) where
 
 import qualified Data.Map as M
 
+import Data.TextBuffer
+
 import Editor.EditorTypes
 import Editor.FrameList
 
-import Data.TextBuffer
 --------------------------------------------------------------------------------
 -- setters and modifiers
 setFrame        insertee editor = editor{ getFrame       = insertee }
 setBuffers      insertee editor = editor{ getBuffers     = insertee }
 setTextDisplay  insertee editor = editor{ getTextDisplay = insertee }
 setClipboard    insertee editor = editor{ getClipBoard   = insertee }
+setPendingIO    insertee editor = editor{ getPendingIO   = insertee }
 
-modifyFrame       f editor = editor{ getFrame        = f $ getFrame editor }
-modifyBuffers     f editor = editor{ getBuffers      = f $ getBuffers editor }
-modifyTextDisplay f editor = editor{ getTextDisplay  = f $ getTextDisplay editor }
-modifyClipBoard   f editor = editor{ getClipBoard    = f $ getClipBoard editor }
+modifyFrame            f editor = editor{ getFrame       = f $ getFrame editor }
+modifyBuffers          f editor = editor{ getBuffers     = f $ getBuffers editor }
+modifyTextDisplay      f editor = editor{ getTextDisplay = f $ getTextDisplay editor }
+modifyClipBoard        f editor = editor{ getClipBoard   = f $ getClipBoard editor }
+modifyPendingIO        f editor = editor{ getPendingIO   = f $ getPendingIO editor }
 
+endSession editor = editor{ isFinished = True}
 --------------------------------------------------------------------------------
 
 editor :: TextDisplay -> Editor 
@@ -38,7 +45,7 @@ editor text =
   let name = "Scratch"
       bs   = M.insert name text M.empty
       f    = toZip name
-  in Editor f bs text (fromStrings [])
+  in Editor f bs text (fromStrings []) (return ()) False
      
 addSplit :: Editor -> String -> TextDisplay -> SplitType -> Editor
 addSplit editor name buffer splitType =
