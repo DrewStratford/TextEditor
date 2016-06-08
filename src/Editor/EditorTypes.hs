@@ -18,11 +18,12 @@ data TextDisplay = TextDisplay
   }
 
 class Mode a where
-   -- returns the appropriate command based on the state of c
+   -- returns the appropriate command based on the state of a
    getCommand :: Key -> a -> Editor -> Maybe Editor
    -- updates the state based on the given key
    updateState :: Key -> a -> a
    keyBindings :: a -> KeyBinds
+   -- | allows the mode to draw additional info to screen
    outputState :: (Int,Int) -> a -> IO ()
 
 data EditorMode = forall m. Mode m => EditorMode m
