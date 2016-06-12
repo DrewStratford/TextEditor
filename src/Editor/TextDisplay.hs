@@ -18,8 +18,6 @@ module Editor.TextDisplay
        ) where
 
 import qualified Data.Map as M
-import UI.HSCurses.Curses
-import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
 import Editor.EditorTypes

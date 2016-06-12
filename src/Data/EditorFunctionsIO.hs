@@ -1,5 +1,5 @@
 module Data.EditorFunctionsIO
-       ( output
+       ( drawTextScreen
        , drawSection
        ) where
 
@@ -9,8 +9,6 @@ import Data.Maybe
 import Control.Monad.State
 import qualified Data.Map as M
 
-import UI.HSCurses.Curses
-import UI.HSCurses.CursesHelper
 
 import Data.TextBuffer
 
@@ -18,6 +16,8 @@ import Editor.EditorTypes
 import Editor.Editor
 import Editor.Modes
 import Editor.TextDisplay
+
+import qualified Graphics.Vty as Vty
 
 
 -- | scrolls the display based on the size of the window
@@ -39,55 +39,30 @@ scrollScreen (scrLines, scrCols) editor = modifyTextDisplay (setTopLine tLine . 
   
 
 --  TextBuffer to draw from, x, y, width of section, height of section
-drawSection :: TextBuffer -> Int -> IO ()
-drawSection text width = do
-  let lines     =   toList $ fmap toList (merge text)
-      go []     = return ()
-      go [s]    = drawLine (min width (length s)) s
-      go (s:ss) = do
-        drawLine (min width (length s)) s
-        drawLine 1 "\n"
-        go ss
-  go lines
+drawSection :: TextBuffer -> Int -> Vty.Image
+drawSection text width = go lines
+  where lines     = toList $ fmap toList (merge text)
+        go []     = Vty.emptyImage
+        go (s:ss) = Vty.string Vty.defAttr s Vty.<-> go ss
 
-drawLine' :: Int -> String -> IO ()
-drawLine' _ [] = return ()
+drawLine' :: Int -> String -> Vty.Image
+drawLine' _ [] = undefined
 drawLine' i (c:cs)
-  | i < 0 = return ()
-  | i < 4 && c /= '\t' = drawLine 1 [c] >> drawLine' (i - 4) cs
+  | i < 0 = undefined
+  | i < 4 && c /= '\t' = undefined
   | otherwise = case c of
-    '\t' -> drawLine 4 "    " >> drawLine' (i - 4) cs
-    _    -> drawLine 1 [c] >> drawLine' (i - 1) cs
+    '\t' ->  undefined
+    _    ->  undefined
 
-output :: Editor -> IO ()
-output editor = do
-  (height, width) <- scrSize
+drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
+drawTextScreen height width vty editor = 
   let editor' = scrollScreen (height, width) editor
       (l,c) = getLineCol $ text td
       tLine = topLine td
       lCol  = leftCol td
       td    = getTextDisplay editor' 
       drawingSection = getSection (lCol,tLine) (height-1,width-1) (text td) 
-  move 0 0 
-  drawSection drawingSection (width -1)
-  let mode = getMode $ getTextDisplay editor'
-  drawMode mode (height,width)
+      outputimg      = drawSection drawingSection (width -1)
+  in Vty.picForImage outputimg 
   
-   -- if in visual mode draw highlighted area
-  
-  {-
-  case startOfRange $ getMode td of
-    (Just selectEnd@(sLine, sCol)) -> do
-      let highlightSection = getSection cursor selectEnd (text td) 
-      setStyle highlightStyle
-      move (min (sLine-tLine) (l-tLine)) (min (sCol-lCol) (c-lCol))
-      drawSection highlightSection (width-1)
-      setStyle defaultCursesStyle
-    _                 -> return ()
--}
-  
-  move l c
-  refresh
 
--- styles
-highlightStyle = mkCursesStyle [Underline]

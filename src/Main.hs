@@ -1,9 +1,9 @@
 module Main where
     
-import KeyInput
 
-import UI.HSCurses.Curses hiding ( Key(..))
-import UI.HSCurses.CursesHelper hiding (getKey)
+
+import Control.Monad
+import Graphics.Vty
 
 import Editor.Editor
 import Editor.TextDisplay
@@ -15,25 +15,28 @@ import Configuration
 
 main :: IO ()
 main = do
-  start
-  --raw True
+  vty <- createVty
   td <- createTextDisplay normalMode "src/Main.hs"
   let ed = editor td
-  iterateTill isFinished waitforKey ed
-  endWin
+  waitforKey vty ed
+  shutdown vty
 
-iterateTill :: Monad m => (a -> Bool) -> (a -> m a) -> a -> m a
-iterateTill pred f a =
-  if pred a
-     then return a
-     else do a' <- f a
-             iterateTill pred f a'
 
-waitforKey editor = do
-  output editor
-  refresh
-  input <- getKey
-  let mode :: EditorMode
-      mode    = getMode $ getTextDisplay editor 
-      editor' = getKeyBinding input mode editor
-  return editor'
+waitforKey :: Vty -> Editor -> IO ()
+waitforKey vty editor = do
+  (height, width) <- displayBounds $ outputIface vty
+  let picture = drawTextScreen height width vty editor
+  update vty picture
+  input <- nextEvent vty
+  case input of
+    EvMouse{} -> waitforKey vty editor
+    EvResize{} -> waitforKey vty editor
+    EvKey key modifiers -> do 
+                 let mode :: EditorMode
+                     mode    = getMode $ getTextDisplay editor 
+                     editor' = getKeyBinding key mode editor
+                 unless (isFinished editor') $ waitforKey vty editor'     
+
+createVty = do
+  cnfg <- standardIOConfig
+  mkVty cnfg

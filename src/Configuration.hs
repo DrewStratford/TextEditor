@@ -8,8 +8,6 @@ module Configuration
 import Data.Maybe
 import Text.Read
 
-import UI.HSCurses.Curses hiding (Key (..))
-
 import Commands
 
 import Editor.Editor
@@ -21,7 +19,7 @@ import Data.TextBuffer
 import Data.EditorFunctions
 import Data.EditorFunctionsIO
 
-import KeyInput
+import Graphics.Vty(Key(..))
 
   
 instance Command Editor where
@@ -31,35 +29,35 @@ instance Command TextDisplay where
   run =  modifyTextDisplay
   
 insertKeys = makeKeyBinds
-    [ BindKey KeyEnter     $ toText newline 
-    , BindKey KeyEsc       $ setGetMode $ EditorMode normalMode
-    , BindKey KeyDelete    $ toText delete
-    , BindKey KeyBackspace $ toText backspace
-    , BindKey KeyRight     $ moveColumn 1
-    , BindKey KeyUp        $ moveLine (-1)
-    , BindKey KeyDown      $ moveLine 1
-    , BindKey KeyLeft      $ moveColumn (-1)
-    , BindKey KeyTab       $ toText (`insert` '\t')
+    [ BindKey KEnter     $ toText newline 
+    , BindKey KEsc       $ setGetMode $ EditorMode normalMode
+    , BindKey KDel    $ toText delete
+    , BindKey KBS $ toText backspace
+    , BindKey KRight     $ moveColumn 1
+    , BindKey KUp        $ moveLine (-1)
+    , BindKey KDown      $ moveLine 1
+    , BindKey KLeft      $ moveColumn (-1)
+    --, BindKey KTab       $ toText (`insert` '\t')
     ]
 
 normalKeys = makeKeyBinds
-    [ BindKey (KeyChar 'l') $ moveColumn 1
-    , BindKey (KeyChar 'k') $ moveLine (-1)
-    , BindKey (KeyChar 'j') $ moveLine 1
-    , BindKey (KeyChar 'h') $ moveColumn (-1)
-    , BindKey (KeyChar 'i') $ setGetMode $ EditorMode insertMode
+    [ BindKey (KChar 'l') $ moveColumn 1
+    , BindKey (KChar 'k') $ moveLine (-1)
+    , BindKey (KChar 'j') $ moveLine 1
+    , BindKey (KChar 'h') $ moveColumn (-1)
+    , BindKey (KChar 'i') $ setGetMode $ EditorMode insertMode
  --   , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
   --                                  in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
-    , BindKey (KeyChar 'p') $ insertClipBoard
+    , BindKey (KChar 'p') $ insertClipBoard
     --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
-    , BindKey (KeyChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    , BindKey (KeyChar ';') $ setGetMode $ EditorMode commandMode
-    , BindKey (KeyChar 'Q')  endSession
+    , BindKey (KChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    , BindKey (KChar ';') $ setGetMode $ EditorMode commandMode
+    , BindKey (KChar 'Q')  endSession
     ]
 
 commandKeys = makeKeyBinds
-    [ BindKey KeyEnter     $ setGetMode $ EditorMode normalMode
-    , BindKey KeyEsc       $ setGetMode $ EditorMode normalMode
+    [ BindKey KEnter     $ setGetMode $ EditorMode normalMode
+    , BindKey KEsc       $ setGetMode $ EditorMode normalMode
     ]
 {-
 visualKeys = makeKeyBinds
@@ -93,29 +91,27 @@ instance Mode InsertMode where
   getCommand key state = command
     -- if the key is a keyChar we "type" it otherwise check for keybind
     where command = case key of
-            (KeyChar c) -> toText (`insert` c)
+            (KChar c) -> toText (`insert` c)
             _           -> fromMaybe id $ lookUpKey key state
 
 instance Mode NormalMode where
   outputState _ _ = return ()
   keyBindings _ = normalKeys
   updateState key (NormalMode i) = case key of
-    (KeyChar c) -> let num  :: Maybe Int
-                       num = readMaybe [c]
-                       shiftedLeft = i * 10
-                   in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
-    _           -> NormalMode 0
+    (KChar c) -> let num  :: Maybe Int
+                     num = readMaybe [c]
+                     shiftedLeft = i * 10
+                 in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
+    _         -> NormalMode 0
   getCommand key state@(NormalMode reps) = fromMaybe id withRepetition
     where command = lookUpKey key state
           withRepetition = command 
 
 instance Mode CommandMode where
-  outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = do
-    move (scrnHeight - 1) 0
-    drawSection textBuf scrnWidth
+  outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = return ()
   keyBindings _ = commandKeys
   updateState key (CommandMode a) = case key of
-    KeyChar c -> CommandMode $ a `insert` c
+    KChar c -> CommandMode $ a `insert` c
     _         -> CommandMode a
 
   getCommand key state = fromMaybe id (lookUpKey key state)

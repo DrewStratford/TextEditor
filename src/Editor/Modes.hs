@@ -9,7 +9,7 @@ import qualified Data.Map as M
 import Data.Maybe
 
 import Commands
-import KeyInput
+import Graphics.Vty (Key(..))
 
 import Editor.Editor
 import Editor.TextDisplay

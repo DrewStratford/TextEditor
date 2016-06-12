@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Data.TextBuffer
 import Editor.FrameList
 
-import KeyInput
+import Graphics.Vty(Key(..))
 
 data TextDisplay = TextDisplay
   { text     :: TextBuffer
