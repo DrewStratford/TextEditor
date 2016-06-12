@@ -19,7 +19,7 @@ import Data.TextBuffer
 import Data.EditorFunctions
 import Data.EditorFunctionsIO
 
-import Graphics.Vty(Key(..))
+import Graphics.Vty(Key(..), Modifier(..))
 
   
 instance Command Editor where
@@ -30,13 +30,13 @@ instance Command TextDisplay where
   
 insertKeys = makeKeyBinds
     [ BindKey KEnter [] $ toText newline 
-    , BindKey KEsc    [] $ setGetMode $ EditorMode normalMode
-    , BindKey KDel    [] $ toText delete
-    , BindKey KBS     [] $ toText backspace
-    , BindKey KRight  [] $ moveColumn 1
-    , BindKey KUp     [] $ moveLine (-1)
-    , BindKey KDown   [] $ moveLine 1
-    , BindKey KLeft   [] $ moveColumn (-1)
+    , BindKey KEsc   [] $ setGetMode $ EditorMode normalMode
+    , BindKey KDel   [] $ toText delete
+    , BindKey KBS    [] $ toText backspace
+    , BindKey KRight [] $ moveColumn 1
+    , BindKey KUp    [] $ moveLine (-1)
+    , BindKey KDown  [] $ moveLine 1
+    , BindKey KLeft  [] $ moveColumn (-1)
     --, BindKey KTab       $ toText (`insert` '\t')
     ]
 
@@ -53,6 +53,7 @@ normalKeys = makeKeyBinds
     , BindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
     , BindKey (KChar ';') [] $ setGetMode $ EditorMode commandMode
     , BindKey (KChar 'Q') []  endSession
+    , BindKey (KChar 's') [MCtrl] $ (\x -> setPendingIO (saveFile x) x)
     ]
 
 commandKeys = makeKeyBinds
@@ -74,19 +75,19 @@ visualKeys = makeKeyBinds
     -- modes
 
 -- | stores the amount of times command should be repeated as an int
-newtype NormalMode = NormalMode Int
-newtype InsertMode = InsertMode ()
+newtype NormalMode  = NormalMode Int
+newtype InsertMode  = InsertMode ()
 newtype CommandMode = CommandMode TextBuffer
-newtype VisualMode = VisualMode (Int, Int)
+newtype VisualMode  = VisualMode (Int, Int)
 
-insertMode = InsertMode ()
-normalMode = NormalMode 0
-visualMode = undefined
+insertMode  = InsertMode ()
+normalMode  = NormalMode 0
+visualMode  = undefined
 commandMode = CommandMode $ fromStrings []
 
 instance Mode InsertMode where
   outputState _ _ = return ()
-  keyBindings _ = insertKeys
+  keyBindings _   = insertKeys
   updateState _ a = a
   getCommand key mods state = command
     -- if the key is a keyChar we "type" it otherwise check for keybind
@@ -96,7 +97,7 @@ instance Mode InsertMode where
 
 instance Mode NormalMode where
   outputState _ _ = return ()
-  keyBindings _ = normalKeys
+  keyBindings _   = normalKeys
   updateState key (NormalMode i) = case key of
     (KChar c) -> let num  :: Maybe Int
                      num = readMaybe [c]

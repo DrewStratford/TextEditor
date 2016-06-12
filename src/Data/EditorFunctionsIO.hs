@@ -1,6 +1,7 @@
 module Data.EditorFunctionsIO
        ( drawTextScreen
        , drawSection
+       , saveFile
        ) where
 
 
@@ -9,6 +10,7 @@ import Data.Maybe
 import Control.Monad.State
 import qualified Data.Map as M
 
+import System.IO
 
 import Data.TextBuffer
 
@@ -57,13 +59,20 @@ drawLine' i (c:cs)
 
 drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
 drawTextScreen width height vty editor = 
-  let editor' = scrollScreen (height, width) editor
-      (l,c) = getLineCol $ text td
-      tLine = topLine td
-      lCol  = leftCol td
-      td    = getTextDisplay editor' 
+  let editor'        = scrollScreen (height, width) editor
+      (l,c)          = getLineCol $ text td
+      tLine          = topLine td
+      lCol           = leftCol td
+      td             = getTextDisplay editor' 
       drawingSection = getSection (lCol,tLine) (height-1,width-1) (text td) 
       outputimg      = drawSection drawingSection (width -1)
   in Vty.picForImage outputimg 
-  
 
+-----------------------------------------------------------------------------------------------------
+-- file saving
+
+saveFile :: Editor -> IO ()
+saveFile editor =
+  let file = filePath $ getTextDisplay editor
+      fileContents = toString $ text $ getTextDisplay editor
+  in writeFile file fileContents

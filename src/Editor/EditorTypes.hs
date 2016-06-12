@@ -15,6 +15,7 @@ data TextDisplay = TextDisplay
   , getMode  :: EditorMode
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
+  , filePath :: FilePath
   }
 
 class Mode a where

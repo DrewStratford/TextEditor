@@ -31,11 +31,11 @@ setTextDisplay  insertee editor = editor{ getTextDisplay = insertee }
 setClipboard    insertee editor = editor{ getClipBoard   = insertee }
 setPendingIO    insertee editor = editor{ getPendingIO   = insertee }
 
-modifyFrame            f editor = editor{ getFrame       = f $ getFrame editor }
-modifyBuffers          f editor = editor{ getBuffers     = f $ getBuffers editor }
-modifyTextDisplay      f editor = editor{ getTextDisplay = f $ getTextDisplay editor }
-modifyClipBoard        f editor = editor{ getClipBoard   = f $ getClipBoard editor }
-modifyPendingIO        f editor = editor{ getPendingIO   = f $ getPendingIO editor }
+modifyFrame        f editor = editor{ getFrame       = f $ getFrame editor }
+modifyBuffers      f editor = editor{ getBuffers     = f $ getBuffers editor }
+modifyTextDisplay  f editor = editor{ getTextDisplay = f $ getTextDisplay editor }
+modifyClipBoard    f editor = editor{ getClipBoard   = f $ getClipBoard editor }
+modifyPendingIO    f editor = editor{ getPendingIO   = f $ getPendingIO editor }
 
 endSession editor = editor{ isFinished = True}
 --------------------------------------------------------------------------------
