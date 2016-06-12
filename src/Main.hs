@@ -1,7 +1,5 @@
 module Main where
     
-
-
 import Control.Monad
 import Graphics.Vty
 
@@ -32,9 +30,10 @@ waitforKey vty editor = do
     EvMouse{} -> waitforKey vty editor
     EvResize{} -> waitforKey vty editor
     EvKey key modifiers -> do 
+      
                  let mode :: EditorMode
                      mode    = getMode $ getTextDisplay editor 
-                     editor' = getKeyBinding key mode editor
+                     editor' = getKeyBinding key modifiers mode editor
                  unless (isFinished editor') $ waitforKey vty editor'     
 
 createVty = do

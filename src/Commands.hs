@@ -22,5 +22,5 @@ makeKeyBinds :: [BindKey] -> KeyBinds
 makeKeyBinds keys = go keys M.empty
   where go :: [BindKey] -> KeyBinds -> KeyBinds
         go []  m                        = m
-        go (BindKey key binding :kbs) m =
-          go kbs (M.insert key (EditorCommand binding) m)
+        go (BindKey key mod binding :kbs) m =
+          go kbs (M.insert (key, mod) (EditorCommand binding) m)

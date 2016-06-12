@@ -29,35 +29,35 @@ instance Command TextDisplay where
   run =  modifyTextDisplay
   
 insertKeys = makeKeyBinds
-    [ BindKey KEnter     $ toText newline 
-    , BindKey KEsc       $ setGetMode $ EditorMode normalMode
-    , BindKey KDel    $ toText delete
-    , BindKey KBS $ toText backspace
-    , BindKey KRight     $ moveColumn 1
-    , BindKey KUp        $ moveLine (-1)
-    , BindKey KDown      $ moveLine 1
-    , BindKey KLeft      $ moveColumn (-1)
+    [ BindKey KEnter [] $ toText newline 
+    , BindKey KEsc    [] $ setGetMode $ EditorMode normalMode
+    , BindKey KDel    [] $ toText delete
+    , BindKey KBS     [] $ toText backspace
+    , BindKey KRight  [] $ moveColumn 1
+    , BindKey KUp     [] $ moveLine (-1)
+    , BindKey KDown   [] $ moveLine 1
+    , BindKey KLeft   [] $ moveColumn (-1)
     --, BindKey KTab       $ toText (`insert` '\t')
     ]
 
 normalKeys = makeKeyBinds
-    [ BindKey (KChar 'l') $ moveColumn 1
-    , BindKey (KChar 'k') $ moveLine (-1)
-    , BindKey (KChar 'j') $ moveLine 1
-    , BindKey (KChar 'h') $ moveColumn (-1)
-    , BindKey (KChar 'i') $ setGetMode $ EditorMode insertMode
- --   , BindKey (KeyChar 'v') $ \t -> let cursor = getLineColumn t
-  --                                  in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
-    , BindKey (KChar 'p') $ insertClipBoard
-    --, BindKey (KeyChar '$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
-    , BindKey (KChar '0') $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    , BindKey (KChar ';') $ setGetMode $ EditorMode commandMode
-    , BindKey (KChar 'Q')  endSession
+    [ BindKey (KChar 'l') [] $ moveColumn 1
+    , BindKey (KChar 'k') [] $ moveLine (-1)
+    , BindKey (KChar 'j') [] $ moveLine 1
+    , BindKey (KChar 'h') [] $ moveColumn (-1)
+    , BindKey (KChar 'i') [] $ setGetMode $ EditorMode insertMode
+ --   , BindKey (KeyChar  []'v') $ \t -> let cursor = getLineColumn t
+  --                      []             in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
+    , BindKey (KChar 'p') [] $ insertClipBoard
+    --, BindKey (KeyChar  []'$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
+    , BindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    , BindKey (KChar ';') [] $ setGetMode $ EditorMode commandMode
+    , BindKey (KChar 'Q') []  endSession
     ]
 
 commandKeys = makeKeyBinds
-    [ BindKey KEnter     $ setGetMode $ EditorMode normalMode
-    , BindKey KEsc       $ setGetMode $ EditorMode normalMode
+    [ BindKey KEnter  [] $ setGetMode $ EditorMode normalMode
+    , BindKey KEsc    [] $ setGetMode $ EditorMode normalMode
     ]
 {-
 visualKeys = makeKeyBinds
@@ -88,11 +88,11 @@ instance Mode InsertMode where
   outputState _ _ = return ()
   keyBindings _ = insertKeys
   updateState _ a = a
-  getCommand key state = command
+  getCommand key mods state = command
     -- if the key is a keyChar we "type" it otherwise check for keybind
     where command = case key of
             (KChar c) -> toText (`insert` c)
-            _           -> fromMaybe id $ lookUpKey key state
+            _         -> fromMaybe id $ lookUpKey key mods state
 
 instance Mode NormalMode where
   outputState _ _ = return ()
@@ -103,8 +103,8 @@ instance Mode NormalMode where
                      shiftedLeft = i * 10
                  in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
     _         -> NormalMode 0
-  getCommand key state@(NormalMode reps) = fromMaybe id withRepetition
-    where command = lookUpKey key state
+  getCommand key mods state@(NormalMode reps) = fromMaybe id withRepetition
+    where command = lookUpKey key mods state
           withRepetition = command 
 
 instance Mode CommandMode where
@@ -114,7 +114,7 @@ instance Mode CommandMode where
     KChar c -> CommandMode $ a `insert` c
     _         -> CommandMode a
 
-  getCommand key state = fromMaybe id (lookUpKey key state)
+  getCommand key mods state = fromMaybe id (lookUpKey key mods state)
 
 -- should be somewhere else
   {-

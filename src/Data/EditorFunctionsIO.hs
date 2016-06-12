@@ -41,9 +41,10 @@ scrollScreen (scrLines, scrCols) editor = modifyTextDisplay (setTopLine tLine . 
 --  TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: TextBuffer -> Int -> Vty.Image
 drawSection text width = go lines
-  where lines     = toList $ fmap toList (merge text)
-        go []     = Vty.emptyImage
-        go (s:ss) = Vty.string Vty.defAttr s Vty.<-> go ss
+  where lines      = toList $ fmap toList (merge text)
+        go []      = Vty.emptyImage
+        go ("":ss) = Vty.string Vty.defAttr " " Vty.<-> go ss
+        go (s:ss)  = Vty.string Vty.defAttr s Vty.<-> go ss
 
 drawLine' :: Int -> String -> Vty.Image
 drawLine' _ [] = undefined
@@ -55,7 +56,7 @@ drawLine' i (c:cs)
     _    ->  undefined
 
 drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
-drawTextScreen height width vty editor = 
+drawTextScreen width height vty editor = 
   let editor' = scrollScreen (height, width) editor
       (l,c) = getLineCol $ text td
       tLine = topLine td

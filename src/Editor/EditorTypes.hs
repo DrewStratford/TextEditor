@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Data.TextBuffer
 import Editor.FrameList
 
-import Graphics.Vty(Key(..))
+import Graphics.Vty(Key(..), Modifier(..))
 
 data TextDisplay = TextDisplay
   { text     :: TextBuffer
@@ -19,7 +19,7 @@ data TextDisplay = TextDisplay
 
 class Mode a where
    -- returns the appropriate command based on the state of a
-   getCommand :: Key -> a -> Editor -> Editor
+   getCommand :: Key -> [Modifier] -> a -> Editor -> Editor
    -- updates the state based on the given key
    updateState :: Key -> a -> a
    keyBindings :: a -> KeyBinds
@@ -60,8 +60,8 @@ data EditorCommand = forall c. (Command c) => EditorCommand (c -> c)
      specify a collection of keybinds without having to care
      to much about the type of the command.
 -}
-data BindKey = forall c. Command c => BindKey Key (c -> c)
+data BindKey = forall c. Command c => BindKey Key [Modifier] (c -> c)
 
 {- | A mapping of keys to keybindings
 -}
-type KeyBinds =  M.Map Key EditorCommand
+type KeyBinds =  M.Map (Key, [Modifier]) EditorCommand
