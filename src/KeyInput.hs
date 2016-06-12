@@ -39,6 +39,7 @@ tillEmpty = do
   if cont
      then do
           c <- getChar
+          putChar c
           fmap (c:) tillEmpty
      else return ""
 
@@ -51,4 +52,5 @@ specialKeys =  [( "\ESC[3~", KeyDelete), ( "\ESC[B", KeyDown ),
                 ( "\ESC[C", KeyRight), ( "\ESC[D", KeyLeft ),
                 ( "\ESC[A", KeyUp ), ("\ESC", KeyEsc),
                 ("\DEL", KeyBackspace), ("\ESC[5~", KeyPageUp),
+                ("", KeyBackspace),
                 ("\ESC[6~", KeyPageDown), ("\r", KeyEnter), ("\n", KeyEnter), ("\t", KeyTab)]

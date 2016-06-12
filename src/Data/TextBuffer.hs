@@ -19,12 +19,14 @@ module Data.TextBuffer
     , getSection
     , removeSection
     , insertSection
+    , toString
     ) where
 
 import Prelude hiding (drop, splitAt,length, lines, take)
 import Control.Arrow
 import Data.Function
 
+import Data.Foldable (toList)
 import Data.Sequence
 
 type Line = Seq Char
@@ -35,6 +37,10 @@ type TextBuffer = ( Seq Line, Line, Line, Seq Line)
 -- | construction
 fromStrings :: [String] -> TextBuffer
 fromStrings ss = splitAtLine (fromList $ map fromList ss) 0
+
+-- | TODO: should probably be using a ByteString
+toString :: TextBuffer -> String
+toString = concatMap (\x -> toList x ++ "\n") . toList . merge 
 
 ----------------------------------------------------------------------------
 insert :: TextBuffer -> Char -> TextBuffer
@@ -136,7 +142,8 @@ insertSection text@(l, il, ir, r) insertee =
     
 
 ----------------------------------------------------------------------------
--- searching functions
+----------------------------------------------------------------------------
+-- searching functions TODO: Implement regex etc
 
 ----------------------------------------------------------------------------
 --helpers

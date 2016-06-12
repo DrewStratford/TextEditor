@@ -24,6 +24,7 @@ class Mode a where
    updateState :: Key -> a -> a
    keyBindings :: a -> KeyBinds
    -- | allows the mode to draw additional info to screen
+   -- TO CONSIDER: is this neccessary with pendingIO?
    outputState :: (Int,Int) -> a -> IO ()
 
 data EditorMode = forall m. Mode m => EditorMode m
@@ -33,8 +34,9 @@ data Editor = Editor
   , getBuffers     :: M.Map String TextDisplay
   , getTextDisplay :: TextDisplay
   , getClipBoard   :: TextBuffer
+  -- | this is so modes can add their own IO events to be run in the main loop (eg saving)
   , getPendingIO   :: IO ()
-  -- marks whether we are finished editing
+  -- |marks whether we are finished editing
   , isFinished     :: Bool
   }
 
