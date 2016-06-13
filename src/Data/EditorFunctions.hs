@@ -65,7 +65,7 @@ moveLine delta textDis = modifyText (\t -> moveLineCol t (line + delta) col) tex
 getLineAt :: Editor -> Int -> String
 getLineAt ed line = if null seq then "" else toList (Seq.index seq 0)
   where line' = line 
-        seq   = getLineSection line' line' (text $ getTextDisplay ed)
+        seq   = getLineSection line' 1 (text $ getTextDisplay ed)
 {- | used to handle tabs etc -}
 
 padString :: Int -> String -> String

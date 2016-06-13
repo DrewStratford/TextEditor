@@ -1,7 +1,7 @@
 module Main where
 
   {-
-    This is a test!
+    Cursor now fully works!
   -}
     
 import Control.Monad
