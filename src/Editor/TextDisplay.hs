@@ -22,9 +22,6 @@ import qualified Data.Map as M
 import Data.TextBuffer
 import Editor.EditorTypes
 
-
-
-
 -----------------------------------------------------------------------------------------------------
 -- setters and modifiers
 
@@ -43,10 +40,18 @@ modifyMarks    f textDis = textDis{ marks    = f $ marks    textDis }
 modifyColAlign f textDis = textDis{ colAlign = f $ colAlign textDis }
 
 textDisplay :: Mode mode => mode -> TextDisplay
-textDisplay mode = TextDisplay (fromStrings []) 0 0 (EditorMode mode) M.empty 0 ""
+textDisplay mode = TextDisplay (fromStrings []) 0 0 (EditorMode mode) M.empty 0 "" defVisualElement 8
 
 createTextDisplay ::  Mode mode => mode  -> FilePath -> IO TextDisplay
 createTextDisplay mode filePath = do
   file <- readFile filePath
   let textBuffer = fromStrings $ lines file
-  return $ TextDisplay textBuffer 0 0 (EditorMode mode) M.empty 0 filePath
+  return $ TextDisplay
+    textBuffer
+    0 0
+    (EditorMode mode)
+    M.empty
+    0
+    filePath
+    defVisualElement
+    8

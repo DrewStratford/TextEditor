@@ -2,6 +2,7 @@ module Data.EditorFunctionsIO
        ( drawTextScreen
        , drawSection
        , saveFile
+       , updateImage
        ) where
 
 
@@ -13,6 +14,7 @@ import qualified Data.Map as M
 import System.IO
 
 import Data.TextBuffer
+import Data.EditorFunctions
 
 import Editor.EditorTypes
 import Editor.Editor
@@ -41,12 +43,13 @@ scrollScreen (scrLines, scrCols) editor = modifyTextDisplay (setTopLine tLine . 
   
 
 --  TextBuffer to draw from, x, y, width of section, height of section
-drawSection :: TextBuffer -> Int -> Vty.Image
-drawSection text width = go lines
+drawSection :: TextBuffer -> Int -> Int -> Vty.Image
+drawSection text width indent = go lines
   where lines      = toList $ fmap toList (merge text)
+        pad        = padString indent 
         go []      = Vty.emptyImage
         go ("":ss) = Vty.string Vty.defAttr " " Vty.<-> go ss
-        go (s:ss)  = Vty.string Vty.defAttr s Vty.<-> go ss
+        go (s:ss)  = Vty.string Vty.defAttr (pad s) Vty.<-> go ss
 
 drawLine' :: Int -> String -> Vty.Image
 drawLine' _ [] = undefined
@@ -59,14 +62,29 @@ drawLine' i (c:cs)
 
 drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
 drawTextScreen width height vty editor = 
-  let editor'        = scrollScreen (height, width) editor
-      (l,c)          = getLineCol $ text td
+  let (l,c)          = getLineCol $ text td
       tLine          = topLine td
       lCol           = leftCol td
-      td             = getTextDisplay editor' 
+      td             = getTextDisplay editor
       drawingSection = getSection (lCol,tLine) (height-1,width-1) (text td) 
-      outputimg      = drawSection drawingSection (width -1)
+      outputimg      = drawSection drawingSection (width -1) (getTabInd td)
   in Vty.picForImage outputimg 
+
+updateImage :: Int -> Int -> Vty.Vty -> Editor -> Editor
+updateImage height width vty editor =
+  let editor'     = scrollScreen (height, width) editor
+      picture     = drawTextScreen height width vty editor'
+      (line, col) = getLineColumn editor'
+      visualCol   = getPadding textDis col (getLineAt editor line) 
+      textDis     = getTextDisplay editor'
+      cursor      = Vty.Cursor visualCol line
+      --TODO: implement scrolling and swap to just picture
+
+      visualElem  = VisualElement visualCol line picture{Vty.picCursor = cursor}
+  in editor' { getTextDisplay = textDis{ getImage = visualElem}}
+
+  
+
 
 -----------------------------------------------------------------------------------------------------
 -- file saving

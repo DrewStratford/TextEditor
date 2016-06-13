@@ -6,11 +6,15 @@ module Data.EditorFunctions
 --       , cutToClipBoard
        , moveLine
        , moveColumn
+       , padString
+       , getPadding
+       , getLineAt
        ) where
 
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Map as M
+import qualified Data.Sequence as Seq
 
 import Data.TextBuffer
 import Editor.EditorTypes
@@ -56,3 +60,20 @@ moveLine :: Int -> TextDisplay -> TextDisplay
 moveLine delta textDis = modifyText (\t -> moveLineCol t (line + delta) col) textDis        
   where (line,_) = getLineCol $ text textDis
         col      = colAlign textDis
+
+-- | TODO: COMMENT IS INACCURATE is 1 indexed as this seems to make more sense
+getLineAt :: Editor -> Int -> String
+getLineAt ed line = if null seq then "" else toList (Seq.index seq 0)
+  where line' = line 
+        seq   = getLineSection line' line' (text $ getTextDisplay ed)
+{- | used to handle tabs etc -}
+
+padString :: Int -> String -> String
+padString indent = concatMap expand
+  where expand '\t' = [' ' | _ <- [0 .. indent]]
+        expand c    = [c]
+
+getPadding :: TextDisplay -> Int -> String -> Int
+getPadding td cursor = length . padString indent . take cursor
+  where indent = getTabInd td
+

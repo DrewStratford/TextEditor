@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Data.TextBuffer
 import Editor.FrameList
 
-import Graphics.Vty(Key(..), Modifier(..))
+import Graphics.Vty --(Key(..), Modifier(..))
 
 data TextDisplay = TextDisplay
   { text     :: TextBuffer
@@ -16,6 +16,8 @@ data TextDisplay = TextDisplay
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
   , filePath :: FilePath
+  , getImage :: VisualElement
+  , getTabInd   :: Int
   }
 
 class Mode a where
@@ -66,3 +68,18 @@ data BindKey = forall c. Command c => BindKey Key [Modifier] (c -> c)
 {- | A mapping of keys to keybindings
 -}
 type KeyBinds =  M.Map (Key, [Modifier]) EditorCommand
+
+
+{- 
+    This is used to help drawing the the editor to the screen
+    and keeps track of the picture generated from this image
+    and the cursor coords
+-} 
+
+data VisualElement = VisualElement
+     { cursorX :: Int
+     , cursorY :: Int
+     , picture :: Picture
+     }
+
+defVisualElement = VisualElement 0 0 emptyPicture
