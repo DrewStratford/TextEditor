@@ -28,23 +28,21 @@ waitforKey :: Vty -> Editor -> IO ()
 waitforKey vty editor = do
   getPendingIO editor
   (height, width) <- displayBounds $ outputIface vty
-  let editor'  = updateImage height width vty editor
-      editor'' = setPendingIO (return ()) editor
-      visualElem :: VisualElement
-      visualElem = getImage $ getTextDisplay editor'
+  let picture  = updateImage height width vty editor
+      editor' = setPendingIO (return ()) editor
 
-  update vty (picture visualElem) 
+  update vty picture 
   input <- nextEvent vty
 
 
   case input of
-    EvMouse{} -> waitforKey vty editor''
-    EvResize{} -> waitforKey vty editor''
+    EvMouse{} -> waitforKey vty editor'
+    EvResize{} -> waitforKey vty editor'
     EvKey key modifiers -> do 
                  let mode :: EditorMode
-                     mode      = getMode $ getTextDisplay editor''
-                     editor''' = getKeyBinding key modifiers mode editor''
-                 unless (isFinished editor'') $ waitforKey vty editor'''
+                     mode      = getMode $ getTextDisplay editor
+                     editor'' = getKeyBinding key modifiers mode editor'
+                 unless (isFinished editor'') $ waitforKey vty editor''
 
 createVty = do
   cnfg <- standardIOConfig

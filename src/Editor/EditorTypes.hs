@@ -16,7 +16,6 @@ data TextDisplay = TextDisplay
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
   , filePath :: FilePath
-  , getImage :: VisualElement
   , getTabInd   :: Int
   }
 
@@ -76,10 +75,3 @@ type KeyBinds =  M.Map (Key, [Modifier]) EditorCommand
     and the cursor coords
 -} 
 
-data VisualElement = VisualElement
-     { cursorX :: Int
-     , cursorY :: Int
-     , picture :: Picture
-     }
-
-defVisualElement = VisualElement 0 0 emptyPicture

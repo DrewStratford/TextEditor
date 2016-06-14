@@ -61,7 +61,7 @@ drawLine' i (c:cs)
     _    ->  undefined
 
 drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
-drawTextScreen width height vty editor = 
+drawTextScreen height width vty editor = 
   let (l,c)          = getLineCol $ text td
       tLine          = topLine td
       lCol           = leftCol td
@@ -70,18 +70,17 @@ drawTextScreen width height vty editor =
       outputimg      = drawSection drawingSection (width -1) (getTabInd td)
   in Vty.picForImage outputimg 
 
-updateImage :: Int -> Int -> Vty.Vty -> Editor -> Editor
+updateImage :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
 updateImage height width vty editor =
   let editor'     = scrollScreen (height, width) editor
       picture     = drawTextScreen height width vty editor'
       (line, col) = getLineColumn editor'
       visualCol   = getPadding textDis col (getLineAt editor line) 
       textDis     = getTextDisplay editor'
-      cursor      = Vty.Cursor visualCol line
-      --TODO: implement scrolling and swap to just picture
+      cursor      = Vty.Cursor visualCol (line - topLine textDis)
+      --TODO: implement scrolling
 
-      visualElem  = VisualElement visualCol line picture{Vty.picCursor = cursor}
-  in editor' { getTextDisplay = textDis{ getImage = visualElem}}
+  in picture{Vty.picCursor = cursor}
 
   
 
