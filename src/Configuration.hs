@@ -48,12 +48,12 @@ normalKeys = makeKeyBinds
     , BindKey (KChar 'i') [] $ setGetMode $ EditorMode insertMode
  --   , BindKey (KeyChar  []'v') $ \t -> let cursor = getLineColumn t
   --                      []             in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
-    , BindKey (KChar 'p') [] $ insertClipBoard
+    , BindKey (KChar 'p') []  insertClipBoard
     --, BindKey (KeyChar  []'$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
     , BindKey (KChar ';') [] $ setGetMode $ EditorMode commandMode
     , BindKey (KChar 'Q') []  endSession
-    , BindKey (KChar 's') [MCtrl] $ (\x -> setPendingIO (saveFile x) x)
+    , BindKey (KChar 's') [MCtrl]  (\x -> setPendingIO (saveFile x) x)
     ]
 
 commandKeys = makeKeyBinds
@@ -104,22 +104,19 @@ instance Mode NormalMode where
                      shiftedLeft = i * 10
                  in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
     _         -> NormalMode 0
-  getCommand key mods state@(NormalMode reps) = fromMaybe id withRepetition
-    where command = lookUpKey key mods state
-          withRepetition = command 
+  getCommand key mods state@(NormalMode reps) = withRepetition
+    where command        = fromMaybe id  $ lookUpKey key mods state
+          withRepetition = composeN (max reps 1) command 
 
 instance Mode CommandMode where
   outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = return ()
   keyBindings _ = commandKeys
   updateState key (CommandMode a) = case key of
     KChar c -> CommandMode $ a `insert` c
-    _         -> CommandMode a
+    _       -> CommandMode a
 
   getCommand key mods state = fromMaybe id (lookUpKey key mods state)
 
 -- should be somewhere else
-  {-
 composeN :: Int -> (a -> a) -> a -> a 
-composeN 0 f a = f a
-composeN i f a =  composeN (i - 1) f a >>= \x ->  f x
--}
+composeN i f = foldl (.) id $ replicate i f

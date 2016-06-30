@@ -27,7 +27,7 @@ getLineColumn editor = getLineCol $ text $ getTextDisplay editor
 --   should be used over modifyText in most cases
 toText :: (TextBuffer -> TextBuffer) -> Editor -> Editor
 toText f editor =
-  (modifyTextDisplay $ setColAlign $ snd $ getLineColumn editor) $
+  modifyTextDisplay (setColAlign $ snd $ getLineColumn editor) $
   modifyTextDisplay (modifyText f) editor
 
 insertClipBoard :: Editor -> Editor
