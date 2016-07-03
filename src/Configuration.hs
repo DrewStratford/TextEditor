@@ -37,7 +37,6 @@ insertKeys = makeKeyBinds
     , BindKey KUp    [] $ moveLine (-1)
     , BindKey KDown  [] $ moveLine 1
     , BindKey KLeft  [] $ moveColumn (-1)
-    --, BindKey KTab       $ toText (`insert` '\t')
     ]
 
 normalKeys = makeKeyBinds
@@ -46,10 +45,7 @@ normalKeys = makeKeyBinds
     , BindKey (KChar 'j') [] $ moveLine 1
     , BindKey (KChar 'h') [] $ moveColumn (-1)
     , BindKey (KChar 'i') [] $ setGetMode $ EditorMode insertMode
- --   , BindKey (KeyChar  []'v') $ \t -> let cursor = getLineColumn t
-  --                      []             in  (modifyTextDisplay $ setGetMode $ visualMode cursor) t
     , BindKey (KChar 'p') []  insertClipBoard
-    --, BindKey (KeyChar  []'$') $ \t -> let (_, c) = getLineColumn t in moveColumn 
     , BindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
     , BindKey (KChar ';') [] $ setGetMode $ EditorMode commandMode
     , BindKey (KChar 'Q') []  endSession
@@ -93,19 +89,26 @@ instance Mode InsertMode where
     -- if the key is a keyChar we "type" it otherwise check for keybind
     where command = case key of
             (KChar c) -> toText (`insert` c)
-            _         -> fromMaybe id $ lookUpKey key mods state
+            _         -> keyToCommand key mods state
 
+{-
+  TODO: Consider whether it would be better to store commands as an string and incrementally
+        parsing it. This could use the existing trie data structure, that used to parse
+        key codes.
+-}
 instance Mode NormalMode where
   outputState _ _ = return ()
+
   keyBindings _   = normalKeys
+
   updateState key (NormalMode i) = case key of
-    (KChar c) -> let num  :: Maybe Int
-                     num = readMaybe [c]
+    (KChar c) -> let num         = readMaybe [c]
                      shiftedLeft = i * 10
                  in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
     _         -> NormalMode 0
+
   getCommand key mods state@(NormalMode reps) = withRepetition
-    where command        = fromMaybe id  $ lookUpKey key mods state
+    where command        = keyToCommand key mods state
           withRepetition = composeN (max reps 1) command 
 
 instance Mode CommandMode where
@@ -115,8 +118,12 @@ instance Mode CommandMode where
     KChar c -> CommandMode $ a `insert` c
     _       -> CommandMode a
 
-  getCommand key mods state = fromMaybe id (lookUpKey key mods state)
+  getCommand = keyToCommand
 
+------------------------------------------------------------
 -- should be somewhere else
 composeN :: Int -> (a -> a) -> a -> a 
 composeN i f = foldl (.) id $ replicate i f
+
+keyToCommand key mods state = fromMaybe id $ lookUpKey key mods state
+
