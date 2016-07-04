@@ -35,32 +35,32 @@ bindEvent event command =
 -}
 
 bindKey :: Key -> [Modifier] -> (Editor a -> Editor b) -> (Event, Action a)
-bindKey key mods command = bindEvent event command
+bindKey key mods = bindEvent event
   where event = EvKey key mods
 
 bindEvent :: Event  -> (Editor a -> Editor b) -> (Event, Action a)
 bindEvent event command = 
-  let action keys editor = performContinuation command keys editor
+  let action keys editor = outputState mode editor' : performContinuation keys editor'
+        where editor' = command editor
+              mode    = getMode $ getTextDisplay editor'
   in (event, action)
 
-performContinuation :: (Editor a -> Editor b) -> Action a
-performContinuation f [] editor = 
-  let mode         = getMode $ getTextDisplay editor
+performContinuation :: Action a
+performContinuation [] editor = 
+  let mode = getMode $ getTextDisplay editor
   in [outputState mode editor]
-performContinuation f (event: events) editor =
-  let editor'      = f editor
-      mode         = getMode $ getTextDisplay editor'
-      nextAction   = event `M.lookup` keyBindings mode
-      editorOutput = outputState mode editor'
-  in case nextAction of
+performContinuation (event: events) editor =
+  let mode         = getMode $ getTextDisplay editor
+      action   = event `M.lookup` keyBindings mode
+      editorOutput = outputState mode editor
+  in case action of
           -- ignores current keystroke when no action TODO: REWORK
-          Nothing     -> performContinuation f events editor 
-          Just action -> editorOutput : action events editor'
+          Nothing     -> editorOutput : performContinuation events editor
+          Just action -> editorOutput : action events editor
      
 makeKeyBinds :: Ord k => [(k, a)] -> M.Map k a
 makeKeyBinds = M.fromList
 
-{-| starts the "loop" |-}
+{-| starts the "loop" TODO account for empty events |-}
 startStream :: [Event] -> Editor a -> [EditorOutput]
-startStream = performContinuation id
-  
+startStream = performContinuation 
