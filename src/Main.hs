@@ -4,6 +4,7 @@ module Main where
     Cursor now fully works!
   -}
     
+import System.IO.Unsafe(unsafeInterleaveIO)
 import Control.Monad
 import Graphics.Vty
 
@@ -18,31 +19,34 @@ import Configuration
 main :: IO ()
 main = do
   vty <- createVty
-  td <- createTextDisplay normalMode "src/Main.hs"
-  let ed = editor td
-  waitforKey vty ed
+  td <- createTextDisplay 0 normalMode "src/Main.hs"
+  (height, width) <- displayBounds $ outputIface vty
+  let ed = editor td height width
+  kStrm <- keyStream vty
+  let outStream = startStream kStrm ed
+  eatOutputStream vty outStream
   shutdown vty
 
-
-waitforKey :: Vty -> Editor -> IO ()
-waitforKey vty editor = do
-  getPendingIO editor
-  (height, width) <- displayBounds $ outputIface vty
-  let picture  = updateImage height width vty editor
-      editor' = setPendingIO (return ()) editor
-
-  update vty picture 
+-- TODO: Replace with a streaming library
+-- exits early with ctrl-c
+keyStream :: Vty -> IO [Event]
+keyStream vty = unsafeInterleaveIO $ do
   input <- nextEvent vty
-
-
   case input of
-    EvMouse{} -> waitforKey vty editor'
-    EvResize{} -> waitforKey vty editor'
-    EvKey key modifiers -> do 
-                 let mode :: EditorMode
-                     mode      = getMode $ getTextDisplay editor
-                     editor'' = getKeyBinding key modifiers mode editor'
-                 unless (isFinished editor'') $ waitforKey vty editor''
+    EvKey (KChar 'c') [MCtrl] -> return []
+    _ -> fmap (input:) (keyStream vty)
+
+eatKeyStream :: Vty -> [Event] -> IO ()
+eatKeyStream vty keys = case keys of
+  []               -> return ()
+  (EvKey (KChar 'Q') []: _)   -> return ()
+  (k: ks)          -> update vty (picForImage $ string defAttr $ show k) >> eatKeyStream vty ks
+  
+eatOutputStream vty [] = return ()
+eatOutputStream vty (o:os) = do
+  let p = getPicture o
+  update vty p
+  eatOutputStream vty os
 
 createVty = do
   cnfg <- standardIOConfig

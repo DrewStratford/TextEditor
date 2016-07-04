@@ -25,12 +25,12 @@ getLineColumn editor = getLineCol $ text $ getTextDisplay editor
 
 -- | modifies the textBuffer while also updating the column alignment (this
 --   should be used over modifyText in most cases
-toText :: (TextBuffer -> TextBuffer) -> Editor -> Editor
+toText :: (TextBuffer -> TextBuffer) -> Editor a -> Editor a
 toText f editor =
   modifyTextDisplay (setColAlign $ snd $ getLineColumn editor) $
   modifyTextDisplay (modifyText f) editor
 
-insertClipBoard :: Editor -> Editor
+insertClipBoard :: Editor a -> Editor a
 insertClipBoard editor = toText (`insertSection` insertee) editor
   where insertee = getClipBoard editor
 
@@ -56,13 +56,13 @@ moveColumn delta editor = toText (`moveCol` (col + delta)) editor
   where (_, col) = getLineColumn editor
 
 
-moveLine :: Int -> TextDisplay -> TextDisplay
+moveLine :: Int -> TextDisplay a -> TextDisplay a
 moveLine delta textDis = modifyText (\t -> moveLineCol t (line + delta) col) textDis        
   where (line,_) = getLineCol $ text textDis
         col      = colAlign textDis
 
 -- | TODO: COMMENT IS INACCURATE is 1 indexed as this seems to make more sense
-getLineAt :: Editor -> Int -> String
+getLineAt :: Editor a -> Int -> String
 getLineAt ed line = if null seq then "" else toList (Seq.index seq 0)
   where line' = line 
         seq   = getLineSection line' 1 (text $ getTextDisplay ed)
@@ -73,7 +73,7 @@ padString indent = concatMap expand
   where expand '\t' = [' ' | _ <- [0 .. indent]]
         expand c    = [c]
 
-getPadding :: TextDisplay -> Int -> String -> Int
+getPadding :: TextDisplay a -> Int -> String -> Int
 getPadding td cursor = length . padString indent . take cursor
   where indent = getTabInd td
 

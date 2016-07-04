@@ -25,7 +25,7 @@ import qualified Graphics.Vty as Vty
 
 
 -- | scrolls the display based on the size of the window
-scrollScreen :: (Int, Int) -> Editor -> Editor
+scrollScreen :: (Int, Int) -> Editor a -> Editor a
 scrollScreen (scrLines, scrCols) editor = modifyTextDisplay (setTopLine tLine . setLeftCol lCol') editor
   where (cursLine, cursCol) = getLineCol $ text textDisplay
         tLine               = topLine textDisplay
@@ -60,8 +60,8 @@ drawLine' i (c:cs)
     '\t' ->  undefined
     _    ->  undefined
 
-drawTextScreen :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
-drawTextScreen height width vty editor = 
+drawTextScreen :: Int -> Int -> Editor a -> Vty.Picture
+drawTextScreen height width editor = 
   let (l,c)          = getLineCol $ text td
       tLine          = topLine td
       lCol           = leftCol td
@@ -70,10 +70,12 @@ drawTextScreen height width vty editor =
       outputimg      = drawSection drawingSection (width -1) (getTabInd td)
   in Vty.picForImage outputimg 
 
-updateImage :: Int -> Int -> Vty.Vty -> Editor -> Vty.Picture
-updateImage height width vty editor =
-  let editor'     = scrollScreen (height, width) editor
-      picture     = drawTextScreen height width vty editor'
+updateImage :: Editor a -> Vty.Picture
+updateImage editor =
+  let height      = scrnHeight editor
+      width       = scrnWidth editor
+      editor'     = scrollScreen (height, width) editor
+      picture     = drawTextScreen height width editor'
       (line, col) = getLineColumn editor'
       visualCol   = getPadding textDis col (getLineAt editor line) 
       textDis     = getTextDisplay editor'
@@ -88,7 +90,7 @@ updateImage height width vty editor =
 -----------------------------------------------------------------------------------------------------
 -- file saving
 
-saveFile :: Editor -> IO ()
+saveFile :: Editor a -> IO ()
 saveFile editor =
   let file = filePath $ getTextDisplay editor
       fileContents = toString $ text $ getTextDisplay editor

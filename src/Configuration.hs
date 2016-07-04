@@ -1,8 +1,6 @@
 module Configuration
        ( insertMode
        , normalMode
-       , visualMode
-       , Editor.Modes.lookUpKey
        ) where
 
 import Data.Maybe
@@ -22,39 +20,41 @@ import Data.EditorFunctionsIO
 import Graphics.Vty(Key(..), Modifier(..))
 
   
-instance Command Editor where
+
+{-
+instance Command (Editor a) where
   run cmd = cmd 
 
-instance Command TextDisplay where
+instance Command (TextDisplay a) where
   run =  modifyTextDisplay
+-}
   
 insertKeys = makeKeyBinds
-    [ BindKey KEnter [] $ toText newline 
-    , BindKey KEsc   [] $ setGetMode $ EditorMode normalMode
-    , BindKey KDel   [] $ toText delete
-    , BindKey KBS    [] $ toText backspace
-    , BindKey KRight [] $ moveColumn 1
-    , BindKey KUp    [] $ moveLine (-1)
-    , BindKey KDown  [] $ moveLine 1
-    , BindKey KLeft  [] $ moveColumn (-1)
+    [ bindKey KEnter [] $ toText newline 
+    , bindKey KEsc   [] $ modifyTextDisplay $ setMode 0 normalMode
+    , bindKey KDel   [] $ toText delete
+    , bindKey KBS    [] $ toText backspace
+    , bindKey KRight [] $ moveColumn 1
+    , bindKey KUp    [] $ modifyTextDisplay $ moveLine (-1)
+    , bindKey KDown  [] $ modifyTextDisplay $ moveLine 1
+    , bindKey KLeft  [] $ moveColumn (-1)
     ]
 
 normalKeys = makeKeyBinds
-    [ BindKey (KChar 'l') [] $ moveColumn 1
-    , BindKey (KChar 'k') [] $ moveLine (-1)
-    , BindKey (KChar 'j') [] $ moveLine 1
-    , BindKey (KChar 'h') [] $ moveColumn (-1)
-    , BindKey (KChar 'i') [] $ setGetMode $ EditorMode insertMode
-    , BindKey (KChar 'p') []  insertClipBoard
-    , BindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    , BindKey (KChar ';') [] $ setGetMode $ EditorMode commandMode
-    , BindKey (KChar 'Q') []  endSession
-    , BindKey (KChar 's') [MCtrl]  (\x -> setPendingIO (saveFile x) x)
+    [ bindKey (KChar 'l') [] $ moveColumn 1
+    , bindKey (KChar 'k') [] $ modifyTextDisplay $ moveLine (-1)
+    , bindKey (KChar 'j') [] $ modifyTextDisplay $ moveLine 1
+    , bindKey (KChar 'h') [] $ moveColumn (-1)
+    , bindKey (KChar 'i') [] $ modifyTextDisplay $ setMode () insertMode
+    , bindKey (KChar 'p') []  insertClipBoard
+    , bindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    --, bindKey (KChar ';') [] $ modifyTextDisplay $ setMode undefined undefined
+    --, bindKey (KChar 'Q') []  endSession
     ]
 
 commandKeys = makeKeyBinds
-    [ BindKey KEnter  [] $ setGetMode $ EditorMode normalMode
-    , BindKey KEsc    [] $ setGetMode $ EditorMode normalMode
+    [ bindKey KEnter  [] $ modifyTextDisplay $ setMode undefined undefined
+    , bindKey KEsc    [] $ modifyTextDisplay $ setMode undefined undefined
     ]
 {-
 visualKeys = makeKeyBinds
@@ -69,61 +69,17 @@ visualKeys = makeKeyBinds
 -}
 ------------------------------------------------------------------------------------------------------
     -- modes
+insertMode :: Mode a
+insertMode = Mode insertKeys output 
+normalMode :: Mode Int
+normalMode = Mode normalKeys output 
 
--- | stores the amount of times command should be repeated as an int
-newtype NormalMode  = NormalMode Int
-newtype InsertMode  = InsertMode ()
-newtype CommandMode = CommandMode TextBuffer
-newtype VisualMode  = VisualMode (Int, Int)
 
-insertMode  = InsertMode ()
-normalMode  = NormalMode 0
-visualMode  = undefined
-commandMode = CommandMode $ fromStrings []
 
-instance Mode InsertMode where
-  outputState _ _ = return ()
-  keyBindings _   = insertKeys
-  updateState _ a = a
-  getCommand key mods state = command
-    -- if the key is a keyChar we "type" it otherwise check for keybind
-    where command = case key of
-            (KChar c) -> toText (`insert` c)
-            _         -> keyToCommand key mods state
-
-{-
-  TODO: Consider whether it would be better to store commands as an string and incrementally
-        parsing it. This could use the existing trie data structure, that used to parse
-        key codes.
--}
-instance Mode NormalMode where
-  outputState _ _ = return ()
-
-  keyBindings _   = normalKeys
-
-  updateState key (NormalMode i) = case key of
-    (KChar c) -> let num         = readMaybe [c]
-                     shiftedLeft = i * 10
-                 in maybe (NormalMode 0) (\x -> NormalMode $ shiftedLeft + x ) num
-    _         -> NormalMode 0
-
-  getCommand key mods state@(NormalMode reps) = withRepetition
-    where command        = keyToCommand key mods state
-          withRepetition = composeN (max reps 1) command 
-
-instance Mode CommandMode where
-  outputState (scrnHeight,scrnWidth) (CommandMode textBuf) = return ()
-  keyBindings _ = commandKeys
-  updateState key (CommandMode a) = case key of
-    KChar c -> CommandMode $ a `insert` c
-    _       -> CommandMode a
-
-  getCommand = keyToCommand
-
+output editor = EditorOutput (updateImage editor) False
 ------------------------------------------------------------
 -- should be somewhere else
 composeN :: Int -> (a -> a) -> a -> a 
 composeN i f = foldl (.) id $ replicate i f
 
-keyToCommand key mods state = fromMaybe id $ lookUpKey key mods state
 

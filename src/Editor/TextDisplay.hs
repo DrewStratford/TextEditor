@@ -6,7 +6,7 @@ module Editor.TextDisplay
        , setText
        , setTopLine
        , setLeftCol
-       , setGetMode
+       , setMode
        , setMarks           
        , setColAlign
        , modifyText
@@ -28,7 +28,7 @@ import Editor.EditorTypes
 setText      insertee textDis = textDis{ text     = insertee }
 setTopLine   insertee textDis = textDis{ topLine  = insertee }
 setLeftCol   insertee textDis = textDis{ leftCol  = insertee }
-setGetMode   insertee textDis = textDis{ getMode  = insertee }
+setMode   state mode textDis = textDis{ getMode  = mode , state = state}
 setMarks     insertee textDis = textDis{ marks    = insertee }
 setColAlign  insertee textDis = textDis{ colAlign = insertee }
 
@@ -39,17 +39,18 @@ modifyLeftCol  f textDis = textDis{ leftCol  = f $ leftCol  textDis }
 modifyMarks    f textDis = textDis{ marks    = f $ marks    textDis }
 modifyColAlign f textDis = textDis{ colAlign = f $ colAlign textDis }
 
-textDisplay :: Mode mode => mode -> TextDisplay
-textDisplay mode = TextDisplay (fromStrings []) 0 0 (EditorMode mode) M.empty 0 "" 8
+textDisplay :: state -> Mode state -> TextDisplay state
+textDisplay state mode = TextDisplay (fromStrings []) 0 0 state mode M.empty 0 "" 8
 
-createTextDisplay ::  Mode mode => mode  -> FilePath -> IO TextDisplay
-createTextDisplay mode filePath = do
+createTextDisplay ::  state -> Mode state -> FilePath -> IO (TextDisplay state)
+createTextDisplay state mode filePath = do
   file <- readFile filePath
   let textBuffer = fromStrings $ lines file
   return $ TextDisplay
     textBuffer
     0 0
-    (EditorMode mode)
+    state
+    mode
     M.empty
     0
     filePath

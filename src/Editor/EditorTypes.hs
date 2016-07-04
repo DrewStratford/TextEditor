@@ -1,4 +1,3 @@
-{-# LANGUAGE  ExistentialQuantification, Rank2Types #-}
 module Editor.EditorTypes where
 
 import qualified Data.Map as M
@@ -8,40 +7,39 @@ import Editor.FrameList
 
 import Graphics.Vty --(Key(..), Modifier(..))
 
-data TextDisplay = TextDisplay
+data TextDisplay state = TextDisplay
   { text     :: TextBuffer
   , topLine  :: Int
   , leftCol  :: Int
-  , getMode  :: EditorMode
+  , state    :: state
+  , getMode  :: Mode state
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
   , filePath :: FilePath
   , getTabInd   :: Int
   }
 
-class Mode a where
-   -- returns the appropriate command based on the state of a
-   getCommand :: Key -> [Modifier] -> a -> Editor -> Editor
-   -- updates the state based on the given key
-   updateState :: Key -> a -> a
-   keyBindings :: a -> KeyBinds
-   -- | allows the mode to draw additional info to screen
-   -- TO CONSIDER: is this neccessary with pendingIO?
-   outputState :: (Int,Int) -> a -> IO ()
-
-data EditorMode = forall m. Mode m => EditorMode m
-
-data Editor = Editor 
-  { getFrame       :: Frame
-  , getBuffers     :: M.Map String TextDisplay
-  , getTextDisplay :: TextDisplay
-  , getClipBoard   :: TextBuffer
-  -- | this is so modes can add their own IO events to be run in the main loop (eg saving)
-  , getPendingIO   :: IO ()
-  -- |marks whether we are finished editing
-  , isFinished     :: Bool
+data Mode state =  Mode
+  { keyBindings :: KeyBinds state
+  , outputState :: Editor state -> EditorOutput
   }
 
+
+data Editor state = Editor 
+  { getTextDisplay :: TextDisplay state
+  , getClipBoard   :: TextBuffer
+  , scrnHeight     :: Int
+  , scrnWidth      :: Int
+  }
+
+{- | EditorOutput is the struct that will be returned for each stage in the stream
+     will contain data for outputting the screen etc
+-}
+data EditorOutput = EditorOutput
+  { getPicture    :: Picture
+  , isFinished :: Bool
+    -- TODO: Expand with basic events like saving and opening
+  }
 {- |
    The Command class runs the function (c -> c) on the 'c' component
    of the editor. Assuming 'c' is a component of the editor. Run should
@@ -49,29 +47,46 @@ data Editor = Editor
 
 -}
 class Command c where
-  run :: (c -> c) -> Editor -> Editor
+  run :: (c -> b) -> Editor a -> Editor b
 
 
-{-| Editor Command is used to group all functions that can be performed
-   on an editor in the same collection, (eg. a  collection of keybinds)
--}
-data EditorCommand = forall c. (Command c) => EditorCommand (c -> c)
+type Action a = [Event] -> Editor a -> [EditorOutput]
 
 {- | BindKey is used to store keybinds as a combination of some key
      and and a command. It is existential so that we cann easily
      specify a collection of keybinds without having to care
      to much about the type of the command.
 -}
-data BindKey = forall c. Command c => BindKey Key [Modifier] (c -> c)
 
+{-
+bindKey :: Command c =>
+           Key -> [Modifier] -> (c -> c) -> (Event, Action a)
+bindKey key mods command = bindEvent event command
+  where event = EvKey key mods
+
+bindEvent :: Command c =>
+           Event  -> (c -> c) -> (Event, Action a)
+bindEvent event command = 
+  let f      = run command
+      action keys editor = performContinuation f keys editor
+  in (event, action)
+
+performContinuation :: (Editor a -> Editor b) -> Action a
+performContinuation f [] editor = undefined --output f editor
+performContinuation f (event: events) editor =
+  let editor'      = f editor
+      mode         = getMode $ getTextDisplay editor'
+      nextAction   = event `M.lookup` keyBindings mode
+      editorOutput = undefined
+  in case nextAction of
+          -- ignores current keystroke when no action TODO: REWORK
+          Nothing     -> performContinuation f events editor 
+          Just action -> editorOutput : action events editor'
+     
+outputEditor :: Editor a -> EditorOutput
+outputEditor editor = EditorOutput pic False
+  where pic = updateImage editor
+-}
 {- | A mapping of keys to keybindings
 -}
-type KeyBinds =  M.Map (Key, [Modifier]) EditorCommand
-
-
-{- 
-    This is used to help drawing the the editor to the screen
-    and keeps track of the picture generated from this image
-    and the cursor coords
--} 
-
+type KeyBinds  state =  M.Map Event (Action state)
