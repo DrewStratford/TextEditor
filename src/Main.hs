@@ -18,9 +18,9 @@ import Configuration
 main :: IO ()
 main = do
   vty <- createVty
-  td <- createTextDisplay 0 normalMode "src/Main.hs"
+  td <- createTextDisplay "src/Main.hs"
   (height, width) <- displayBounds $ outputIface vty
-  let ed = createEditorOutput $ editor td height width
+  let ed = createEditorOutput $ editor td 0 normalMode height width
   keyLoop vty ed
   shutdown vty
 

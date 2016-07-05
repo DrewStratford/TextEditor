@@ -34,7 +34,7 @@ insertKeys event editor =
   in case event of
      EvKey (KChar c) [] -> createEditorOutput $ toText (`insert` c) editor
      EvKey KEnter [] -> createEditorOutput $ toText newline editor
-     EvKey KEsc   [] -> createEditorOutput $ modifyTextDisplay (setMode 0 normalMode) editor
+     EvKey KEsc   [] -> createEditorOutput $ setMode 0 normalMode editor
      EvKey KDel   [] -> createEditorOutput $ toText delete editor
      EvKey KBS    [] -> createEditorOutput $ toText backspace editor
      EvKey KRight [] -> createEditorOutput $ moveColumn 1 editor
@@ -46,14 +46,14 @@ insertKeys event editor =
 
 normalKeys :: KeyBinds Int
 normalKeys event ed =
-  let moveAmount = max 1 (state $ getTextDisplay ed)
+  let moveAmount = max 1 (getState ed)
       editor     = increment event ed
   in case event of
      EvKey (KChar 'l') [] -> createEditorOutput $ moveColumn moveAmount editor
      EvKey (KChar 'k') [] -> createEditorOutput $ modifyTextDisplay (moveLine (- moveAmount)) editor
      EvKey (KChar 'j') [] -> createEditorOutput $ modifyTextDisplay (moveLine moveAmount) editor
      EvKey (KChar 'h') [] -> createEditorOutput $ moveColumn (-moveAmount) editor
-     EvKey (KChar 'i') [] -> createEditorOutput $ modifyTextDisplay (setMode () insertMode) editor
+     EvKey (KChar 'i') [] -> createEditorOutput $ setMode () insertMode editor
      EvKey (KChar 'p') [] -> createEditorOutput $ insertClipBoard editor
      --EvKey (KChar '0') [] -> createEditorOutput $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
      _                    -> createEditorOutput editor
@@ -64,9 +64,10 @@ increment :: Event -> Editor Int -> Editor Int
 increment (EvKey (KChar c) []) editor = 
   let digit = readMaybe [c] :: Maybe Int
   in case digit of 
-      Nothing  -> modifyTextDisplay (setState 0) editor
-      (Just i) -> modifyTextDisplay (modifyState (\s -> s * 10 + i)) editor
-increment _ editor = modifyTextDisplay (setState 0) editor
+      Nothing  -> setState 0 editor
+      (Just i) -> modifyState (\s -> s * 10 + i) editor
+increment _ editor = setState 0 editor
+
 ------------------------------------------------------------------------------------------------------
     -- modes
 insertMode :: Mode a

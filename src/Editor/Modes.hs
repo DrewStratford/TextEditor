@@ -19,7 +19,7 @@ import Editor.EditorTypes
 
 createEditorOutput :: Editor a -> EditorOutput
 createEditorOutput editor =
-    let mode       = getMode $ getTextDisplay editor
+    let mode       = getMode editor
         pic        = outputState mode editor
         next event = keyBindings mode event editor
     in EditorOutput pic False next

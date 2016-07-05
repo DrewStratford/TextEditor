@@ -7,12 +7,10 @@ import Editor.FrameList
 
 import qualified Graphics.Vty as Vty
 
-data TextDisplay state = TextDisplay
+data TextDisplay = TextDisplay
   { text     :: TextBuffer
   , topLine  :: Int
   , leftCol  :: Int
-  , state    :: state
-  , getMode  :: Mode state
   , marks    :: M.Map String (Int, Int)
   , colAlign :: Int
   , filePath :: FilePath
@@ -26,10 +24,12 @@ data Mode state =  Mode
 
 
 data Editor state = Editor 
-  { getTextDisplay :: TextDisplay state
+  { getTextDisplay :: TextDisplay
   , getClipBoard   :: TextBuffer
   , scrnHeight     :: Int
   , scrnWidth      :: Int
+  , getState       :: state
+  , getMode        :: Mode state
   }
 
 {- | EditorOutput is the struct that will be returned for each stage in the stream
@@ -48,8 +48,8 @@ data EditorOutput = EditorOutput
    access the apropriate appropriate 'c' in the editor
 
 -}
-class Command c where
-  run :: (c -> b) -> Editor a -> Editor b
+class EditorAccess c where
+  get :: Editor a -> c
 
 
 type Action a = Vty.Event -> Editor a -> EditorOutput

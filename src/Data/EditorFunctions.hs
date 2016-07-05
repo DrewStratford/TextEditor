@@ -56,7 +56,7 @@ moveColumn delta editor = toText (`moveCol` (col + delta)) editor
   where (_, col) = getLineColumn editor
 
 
-moveLine :: Int -> TextDisplay a -> TextDisplay a
+moveLine :: Int -> TextDisplay -> TextDisplay
 moveLine delta textDis = modifyText (\t -> moveLineCol t (line + delta) col) textDis        
   where (line,_) = getLineCol $ text textDis
         col      = colAlign textDis
@@ -73,7 +73,7 @@ padString indent = concatMap expand
   where expand '\t' = [' ' | _ <- [0 .. indent]]
         expand c    = [c]
 
-getPadding :: TextDisplay a -> Int -> String -> Int
+getPadding :: TextDisplay -> Int -> String -> Int
 getPadding td cursor = length . padString indent . take cursor
   where indent = getTabInd td
 
