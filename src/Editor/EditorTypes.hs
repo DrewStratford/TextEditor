@@ -5,7 +5,7 @@ import qualified Data.Map as M
 import Data.TextBuffer
 import Editor.FrameList
 
-import Graphics.Vty --(Key(..), Modifier(..))
+import qualified Graphics.Vty as Vty
 
 data TextDisplay state = TextDisplay
   { text     :: TextBuffer
@@ -36,7 +36,7 @@ data Editor state = Editor
      will contain data for outputting the screen etc
 -}
 data EditorOutput = EditorOutput
-  { getPicture    :: Picture
+  { getPicture    :: Vty.Picture
   , isFinished :: Bool
     -- TODO: Expand with basic events like saving and opening
   }
@@ -50,7 +50,7 @@ class Command c where
   run :: (c -> b) -> Editor a -> Editor b
 
 
-type Action a = [Event] -> Editor a -> [EditorOutput]
+type Action a = [Vty.Event] -> Editor a -> [EditorOutput]
 
 {- | BindKey is used to store keybinds as a combination of some key
      and and a command. It is existential so that we cann easily
@@ -89,4 +89,4 @@ outputEditor editor = EditorOutput pic False
 -}
 {- | A mapping of keys to keybindings
 -}
-type KeyBinds  state =  M.Map Event (Action state)
+type KeyBinds  state =  M.Map Vty.Event (Action state)
