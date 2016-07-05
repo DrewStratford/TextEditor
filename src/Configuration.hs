@@ -17,7 +17,7 @@ import Data.TextBuffer
 import Data.EditorFunctions
 import Data.EditorFunctionsIO
 
-import Graphics.Vty(Key(..), Modifier(..))
+import Graphics.Vty(Event(..), Key(..), Modifier(..))
 
   
 
@@ -29,54 +29,39 @@ instance Command (TextDisplay a) where
   run =  modifyTextDisplay
 -}
   
-insertKeys = makeKeyBinds
-    [ bindKey KEnter [] $ toText newline 
-    , bindKey KEsc   [] $ modifyTextDisplay $ setMode 0 normalMode
-    , bindKey KDel   [] $ toText delete
-    , bindKey KBS    [] $ toText backspace
-    , bindKey KRight [] $ moveColumn 1
-    , bindKey KUp    [] $ modifyTextDisplay $ moveLine (-1)
-    , bindKey KDown  [] $ modifyTextDisplay $ moveLine 1
-    , bindKey KLeft  [] $ moveColumn (-1)
-    ]
+insertKeys event editor = 
+  let i = undefined
+  in case event of
+     EvKey KEnter [] -> createEditorOutput $ toText newline editor
+     EvKey KEsc   [] -> createEditorOutput $ modifyTextDisplay (setMode 0 normalMode) editor
+     EvKey KDel   [] -> createEditorOutput $ toText delete editor
+     EvKey KBS    [] -> createEditorOutput $ toText backspace editor
+     EvKey KRight [] -> createEditorOutput $ moveColumn 1 editor
+     EvKey KUp    [] -> createEditorOutput $ modifyTextDisplay (moveLine (-1)) editor
+     EvKey KDown  [] -> createEditorOutput $ modifyTextDisplay (moveLine 1) editor
+     EvKey KLeft  [] -> createEditorOutput $ moveColumn (-1) editor
+     _               -> createEditorOutput editor
+    
 
-normalKeys = makeKeyBinds
-    [ bindKey (KChar 'l') [] $ moveColumn 1
-    , bindKey (KChar 'k') [] $ modifyTextDisplay $ moveLine (-1)
-    , bindKey (KChar 'j') [] $ modifyTextDisplay $ moveLine 1
-    , bindKey (KChar 'h') [] $ moveColumn (-1)
-    , bindKey (KChar 'i') [] $ modifyTextDisplay $ setMode () insertMode
-    , bindKey (KChar 'p') []  insertClipBoard
-    , bindKey (KChar '0') [] $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    --, bindKey (KChar ';') [] $ modifyTextDisplay $ setMode undefined undefined
-    --, bindKey (KChar 'Q') []  endSession
-    ]
+normalKeys event editor = case event of
+    EvKey (KChar 'l') [] -> createEditorOutput $ moveColumn 1 editor
+    EvKey (KChar 'k') [] -> createEditorOutput $ modifyTextDisplay (moveLine (-1)) editor
+    EvKey (KChar 'j') [] -> createEditorOutput $ modifyTextDisplay (moveLine 1) editor
+    EvKey (KChar 'h') [] -> createEditorOutput $ moveColumn (-1) editor
+    EvKey (KChar 'i') [] -> createEditorOutput $ modifyTextDisplay (setMode () insertMode) editor
+    EvKey (KChar 'p') [] -> createEditorOutput $ insertClipBoard editor
+    --EvKey (KChar '0') [] -> createEditorOutput $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+    _                    -> createEditorOutput editor
 
-commandKeys = makeKeyBinds
-    [ bindKey KEnter  [] $ modifyTextDisplay $ setMode undefined undefined
-    , bindKey KEsc    [] $ modifyTextDisplay $ setMode undefined undefined
-    ]
-{-
-visualKeys = makeKeyBinds
-    [ BindKey (KeyChar '\ESC') $ setGetMode normalMode
-    , BindKey (KeyChar 'l')    $ moveColumn 1
-    , BindKey (KeyChar 'k')    $ moveLine (-1)
-    , BindKey (KeyChar 'j')    $ moveLine 1
-    , BindKey (KeyChar 'h')    $ moveColumn (-1)
-    , BindKey (KeyChar 'x')    $ modifyTextDisplay (setGetMode normalMode) . cutToClipBoard
-    , BindKey (KeyChar 'y')    $ modifyTextDisplay (setGetMode normalMode) . copyToClipBoard
-    ]
--}
 ------------------------------------------------------------------------------------------------------
     -- modes
 insertMode :: Mode a
-insertMode = Mode insertKeys output 
+insertMode = Mode insertKeys updateImage 
 normalMode :: Mode Int
-normalMode = Mode normalKeys output 
+normalMode = Mode normalKeys updateImage 
 
 
 
-output editor = EditorOutput (updateImage editor) False
 ------------------------------------------------------------
 -- should be somewhere else
 composeN :: Int -> (a -> a) -> a -> a 
