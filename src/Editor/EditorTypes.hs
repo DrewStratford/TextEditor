@@ -43,7 +43,7 @@ data EditorOutput = EditorOutput
   }
 
 {- |
-   The Command class runs the function (c -> c) on the 'c' component
+   The EditorAccess class runs the function (c -> c) on the 'c' component
    of the editor. Assuming 'c' is a component of the editor. Run should
    access the apropriate appropriate 'c' in the editor
 

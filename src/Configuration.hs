@@ -30,8 +30,9 @@ instance Command (TextDisplay a) where
 -}
   
 insertKeys event editor = 
-  let i = undefined
+  let state = undefined
   in case event of
+     EvKey (KChar c) [] -> createEditorOutput $ toText (`insert` c) editor
      EvKey KEnter [] -> createEditorOutput $ toText newline editor
      EvKey KEsc   [] -> createEditorOutput $ modifyTextDisplay (setMode 0 normalMode) editor
      EvKey KDel   [] -> createEditorOutput $ toText delete editor
@@ -43,16 +44,29 @@ insertKeys event editor =
      _               -> createEditorOutput editor
     
 
-normalKeys event editor = case event of
-    EvKey (KChar 'l') [] -> createEditorOutput $ moveColumn 1 editor
-    EvKey (KChar 'k') [] -> createEditorOutput $ modifyTextDisplay (moveLine (-1)) editor
-    EvKey (KChar 'j') [] -> createEditorOutput $ modifyTextDisplay (moveLine 1) editor
-    EvKey (KChar 'h') [] -> createEditorOutput $ moveColumn (-1) editor
-    EvKey (KChar 'i') [] -> createEditorOutput $ modifyTextDisplay (setMode () insertMode) editor
-    EvKey (KChar 'p') [] -> createEditorOutput $ insertClipBoard editor
-    --EvKey (KChar '0') [] -> createEditorOutput $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
-    _                    -> createEditorOutput editor
+normalKeys :: KeyBinds Int
+normalKeys event ed =
+  let moveAmount = max 1 (state $ getTextDisplay ed)
+      editor     = increment event ed
+  in case event of
+     EvKey (KChar 'l') [] -> createEditorOutput $ moveColumn moveAmount editor
+     EvKey (KChar 'k') [] -> createEditorOutput $ modifyTextDisplay (moveLine (- moveAmount)) editor
+     EvKey (KChar 'j') [] -> createEditorOutput $ modifyTextDisplay (moveLine moveAmount) editor
+     EvKey (KChar 'h') [] -> createEditorOutput $ moveColumn (-moveAmount) editor
+     EvKey (KChar 'i') [] -> createEditorOutput $ modifyTextDisplay (setMode () insertMode) editor
+     EvKey (KChar 'p') [] -> createEditorOutput $ insertClipBoard editor
+     --EvKey (KChar '0') [] -> createEditorOutput $ \t -> let (_, c) = getLineColumn t in moveColumn (-c) t
+     _                    -> createEditorOutput editor
 
+
+-- | increments the editors "count" if it number is pressed
+increment :: Event -> Editor Int -> Editor Int
+increment (EvKey (KChar c) []) editor = 
+  let digit = readMaybe [c] :: Maybe Int
+  in case digit of 
+      Nothing  -> modifyTextDisplay (setState 0) editor
+      (Just i) -> modifyTextDisplay (modifyState (\s -> s * 10 + i)) editor
+increment _ editor = modifyTextDisplay (setState 0) editor
 ------------------------------------------------------------------------------------------------------
     -- modes
 insertMode :: Mode a

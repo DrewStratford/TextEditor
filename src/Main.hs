@@ -4,7 +4,6 @@ module Main where
     Cursor now fully works!
   -}
     
-import System.IO.Unsafe(unsafeInterleaveIO)
 import Control.Monad
 import Graphics.Vty
 
@@ -31,27 +30,6 @@ keyLoop vty editor = do
   case input of
     EvKey (KChar 'c') [MCtrl] -> return ()
     _ -> keyLoop vty (nextAction editor input)
-
--- TODO: Replace with a streaming library
--- exits early with ctrl-c
-keyStream :: Vty -> IO [Event]
-keyStream vty = unsafeInterleaveIO $ do
-  input <- nextEvent vty
-  case input of
-    EvKey (KChar 'c') [MCtrl] -> return []
-    _ -> fmap (input:) (keyStream vty)
-
-eatKeyStream :: Vty -> [Event] -> IO ()
-eatKeyStream vty keys = case keys of
-  []               -> return ()
-  (EvKey (KChar 'Q') []: _)   -> return ()
-  (k: ks)          -> update vty (picForImage $ string defAttr $ show k) >> eatKeyStream vty ks
-  
-eatOutputStream vty [] = return ()
-eatOutputStream vty (o:os) = do
-  let p = getPicture o
-  update vty p
-  eatOutputStream vty os
 
 createVty = do
   cnfg <- standardIOConfig

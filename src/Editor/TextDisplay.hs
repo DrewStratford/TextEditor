@@ -4,6 +4,7 @@ module Editor.TextDisplay
        , createTextDisplay
        , textDisplay
        , setText
+       , setState
        , setTopLine
        , setLeftCol
        , setMode
@@ -13,6 +14,7 @@ module Editor.TextDisplay
        , modifyTopLine
        , modifyLeftCol
 --       , modifyGetMode
+       , modifyState
        , modifyMarks
        , modifyColAlign
        ) where
@@ -26,6 +28,7 @@ import Editor.EditorTypes
 -- setters and modifiers
 
 setText      insertee textDis = textDis{ text     = insertee }
+setState     insertee textDis = textDis{ state    = insertee }
 setTopLine   insertee textDis = textDis{ topLine  = insertee }
 setLeftCol   insertee textDis = textDis{ leftCol  = insertee }
 setMode   state mode textDis = textDis{ getMode  = mode , state = state}
@@ -33,6 +36,7 @@ setMarks     insertee textDis = textDis{ marks    = insertee }
 setColAlign  insertee textDis = textDis{ colAlign = insertee }
 
 modifyText     f textDis = textDis{ text     = f $ text     textDis }
+modifyState    f textDis = textDis{ state    = f $ state    textDis }
 modifyTopLine  f textDis = textDis{ topLine  = f $ topLine  textDis }
 modifyLeftCol  f textDis = textDis{ leftCol  = f $ leftCol  textDis }
 --modifyGetMode  f textDis = textDis{ getMode  = f $ getMode  textDis }
