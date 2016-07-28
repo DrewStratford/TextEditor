@@ -18,16 +18,7 @@ import Data.EditorFunctions
 import Data.EditorFunctionsIO
 
 import Graphics.Vty(Event(..), Key(..), Modifier(..))
-
   
-
-{-
-instance Command (Editor a) where
-  run cmd = cmd 
-
-instance Command (TextDisplay a) where
-  run =  modifyTextDisplay
--}
   
 insertKeys event editor = 
   let state = undefined

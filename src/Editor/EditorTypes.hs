@@ -19,7 +19,7 @@ data TextDisplay = TextDisplay
 
 data Mode state =  Mode
   { keyBindings :: KeyBinds state
-  , outputState :: Editor state -> Vty.Picture
+  , outputState :: Int -> Int -> Editor state -> Vty.Picture
   }
 
 

@@ -70,11 +70,9 @@ drawTextScreen height width editor =
       outputimg      = drawSection drawingSection (width -1) (getTabInd td)
   in Vty.picForImage outputimg 
 
-updateImage :: Editor a -> Vty.Picture
-updateImage editor =
-  let height      = scrnHeight editor
-      width       = scrnWidth editor
-      editor'     = scrollScreen (height, width) editor
+updateImage :: Int -> Int -> Editor a -> Vty.Picture
+updateImage height width editor =
+  let editor'     = scrollScreen (height, width) editor
       picture     = drawTextScreen height width editor'
       (line, col) = getLineColumn editor'
       visualCol   = getPadding textDis col (getLineAt editor line) 

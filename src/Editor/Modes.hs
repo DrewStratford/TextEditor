@@ -14,12 +14,13 @@ import Editor.TextDisplay
 import Editor.EditorTypes
 
 
-{- | createEditorOutput creates a closure around an operation over editors
- - -}
+{- |
+     createEditorOutput creates a closure around an operation over editors
+-}
 
 createEditorOutput :: Editor a -> EditorOutput
 createEditorOutput editor =
     let mode       = getMode editor
-        pic        = outputState mode editor
+        pic        = outputState mode (scrnHeight editor) (scrnWidth editor) editor
         next event = keyBindings mode event editor
     in EditorOutput pic False next
