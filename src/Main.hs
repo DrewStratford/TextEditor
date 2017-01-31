@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
   {-
@@ -5,32 +6,56 @@ module Main where
   -}
     
 import Control.Monad
+import Control.Monad
 import Graphics.Vty
 
-import Editor.Editor
-import Editor.TextDisplay
-import Editor.EditorTypes
-import Editor.Modes
-import Data.EditorFunctionsIO
-
-import Configuration
+import Control.TextMonad
 
 main :: IO ()
 main = do
   vty <- createVty
-  td <- createTextDisplay "src/Main.hs"
-  (height, width) <- displayBounds $ outputIface vty
-  let ed = createEditorOutput $ editor td 0 normalMode height width
-  keyLoop vty ed
+  file <- readFile "/home/drew/Documents/Writing/Writing_Ideas-July_11.txt"
+  let state = emptyTextState vty "scratch"
+  run (start file) state
   shutdown vty
 
-keyLoop vty editor = do
-  update vty (getPicture editor)
-  input <- nextEvent vty
-  case input of
-    EvKey (KChar 'c') [MCtrl] -> return ()
-    _ -> keyLoop vty (nextAction editor input)
+start :: String -> TextT IO ()
+start file = do
+  insertString file
+  setColumn 0
+  drawText
+  flush
+  loop
+  
+loop :: TextT IO ()
+loop = do
+  key <- getKey
+  unless (key == EvKey (KChar 'c') [MCtrl]) $ do
+    case key of
+      EvKey (KChar c) [] -> insertChar c
+      EvKey KBS []       -> deleteAmount 1
+      EvKey KEnter []    -> insertText "\n"
+      EvKey (KChar 'o') [MCtrl] -> open "test"
+      EvKey (KChar 'x') [MCtrl] -> close
+      --EvKey (KChar 'q') [MCtrl] -> askQuestion "enter something" >>= insertString
+        
+      EvKey KEnd [] -> moveToEOL
+      EvKey KHome [] -> moveToSOL
+      EvKey KLeft [] -> moveColumn (-1)
+      EvKey KRight [] -> moveColumn 1
 
+      EvKey KLeft [MShift] -> previous 
+      EvKey KRight [MShift] -> next 
+      -- prints the combo onto the document
+      other                -> insertString (show other)
+    drawText
+    flush
+    loop
+
+
+
+  
+  
 createVty = do
   cnfg <- standardIOConfig
   mkVty cnfg
