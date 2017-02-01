@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveFunctor, RankNTypes, ExistentialQuantification #-}
 module Control.TextMonad
   ( emptyTextState
@@ -34,6 +33,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Free
 import Control.Monad.Identity
 import Data.Foldable
+import Data.IORef
 
 import qualified Data.Map as M
 import Data.Maybe
@@ -66,29 +66,34 @@ data TextF effect next =
   | Vsplit next
   | MvLeft next
   | MvRight next
+  --
+  | ToBuffer (B.Buffer -> B.Buffer) next
+  | GetBuffer (B.Buffer -> next)
 
 instance Functor (TextF e) where
-  fmap f (Get g)        = Get (f . g)
-  fmap f (Put str n)    = Put str (f n)
-  fmap f (Effect eff n) = Effect eff (f . n)
-  fmap f (Open str n)   = Open str (f n)
-  fmap f (Close n)      = Close (f n)
-  fmap f (Swap str n)   = Swap str (f n)
-  fmap f (Vsplit n)     = Vsplit (f n)
-  fmap f (MvLeft n)     = MvLeft (f n)
-  fmap f (MvRight n)    = MvRight (f n)
+  fmap f (Get g)           = Get (f . g)
+  fmap f (Put str n)       = Put str (f n)
+  fmap f (Effect eff n)    = Effect eff (f . n)
+  fmap f (Open str n)      = Open str (f n)
+  fmap f (Close n)         = Close (f n)
+  fmap f (Swap str n)      = Swap str (f n)
+  fmap f (Vsplit n)        = Vsplit (f n)
+  fmap f (MvLeft n)        = MvLeft (f n)
+  fmap f (MvRight n)       = MvRight (f n)
+  fmap f (ToBuffer g next) = ToBuffer g (f next)
+  fmap f (GetBuffer g)     = GetBuffer (f . g)
 
   
 data TextState = TextState
-  { text :: B.Buffer
+  { text :: IORef B.Buffer
   , name :: String
   , col :: Int
   , vty :: Vty.Vty
   , picture :: Vty.Image
   }
 
-emptyTextState :: Vty.Vty -> String -> TextState
-emptyTextState vty str = TextState mempty str 0 vty Vty.emptyImage
+emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
+emptyTextState vty str ref = TextState ref str 0 vty Vty.emptyImage
 
 
 -- | A monad transformer for controlling the text state
@@ -98,14 +103,23 @@ type TextT m = FreeT (TextF m) (StateT TextState m)
 {-
   Just a bunch of simple getters and setters
 -}
-modifyText f = lift $ modify' fs
-  where fs ts = ts { text = f (text ts) }
+
+bufferSize :: Monad m => TextT m Int
+bufferSize = do
+  b <- getBuffer
+  return $ B.size b
 
 
-moveColumn amount = lift $ modify' fs
-  where fs ts = ts { col = col' ts amount } 
-        col' ts amount = min (end ts) (max 0 (col ts + amount))
-        end = B.size . text
+onBuffer :: Monad m => (B.Buffer -> b) -> TextT m b
+onBuffer f = f <$> getBuffer
+  
+
+moveColumn :: Monad m => Int -> TextT m ()
+moveColumn amount = do
+  end <- bufferSize
+  let fs ts = ts { col = col' ts amount } 
+      col' ts amount = min end (max 0 (col ts + amount))
+  lift $ modify' fs
 
 moveToEOL :: Monad m => TextT m ()
 moveToEOL = whileM_ (not <$> atEOL) (moveColumn 1)
@@ -127,17 +141,16 @@ atEOL :: Monad m => TextT m Bool
 atEOL = do
   buffer <- text <$> lift get
   c <- getCol
-  return (B.atEOL c buffer || B.atEnd c buffer)
+  orM [ onBuffer $ B.atEOL c
+      , onBuffer $ B.atEnd c 
+      ]
 
 atSOL :: Monad m => TextT m Bool
 atSOL = do
-  buffer <- text <$> lift get
   c <- getCol
-  return (B.atEOL c buffer || B.atEnd c buffer)
-  
-
-  
-  
+  orM [ onBuffer $ B.atEOL c 
+      , onBuffer $ B.atEnd c
+      ]
 
 insertText :: Monad m => T.Text -> TextT m ()
 insertText = insertBuffer . B.fromText
@@ -155,13 +168,13 @@ insertBuffer :: Monad m => B.Buffer -> TextT m ()
 insertBuffer buffer = do
   let amount = B.size buffer
   column <- getCol
-  modifyText (B.insertAt column buffer)
+  toBuffer (B.insertAt column buffer)
   moveColumn amount
 
 deleteAmount :: Monad m => Int -> TextT m ()
 deleteAmount amount = do
   column <- getCol
-  modifyText (B.deleteAmountAt amount column)
+  toBuffer (B.deleteAmountAt amount column)
   moveColumn (-amount)
   
 
@@ -186,6 +199,11 @@ next = liftF (MvRight ())
 previous :: Monad m => TextT m ()
 previous = liftF (MvLeft ())
 
+toBuffer :: Monad m => (B.Buffer -> B.Buffer) -> TextT m ()
+toBuffer f = liftF (ToBuffer f ())
+
+getBuffer :: Monad m => TextT m B.Buffer
+getBuffer  = liftF (GetBuffer id)
   
 doEffect :: Monad m => m a -> TextT m a
 doEffect eff = liftF (Effect eff id)
@@ -200,14 +218,15 @@ flush = do
 
 outputAsLines :: TextT IO ()
 outputAsLines = do
-  state <- lift get
-  doEffect (mapM_ (print) $ take 80 $ B.toLines $ text state)
+  text <- getBuffer
+  doEffect (mapM_ (print) $ take 80 $ B.toLines $ text)
 
 drawText :: Monad m => TextT m ()
 drawText = do
   state  <- lift get
+  text   <- getBuffer
 
-  let buffer = B.insertAt columns (B.fromString "^") $ text state
+  let buffer = B.insertAt columns (B.fromString "^") $ text 
       columns = col state
       header = Vty.string Vty.defAttr (name state)
       img = drawSection buffer 80 -- TODO: Make width configurable
@@ -245,8 +264,8 @@ type TextIO = TextT IO ()
     will need to be replaced when swapping buffers.
 -}
 interpret :: Z.Zip TextState -> TextT IO a -> StateT TextState IO a
-interpret buffers text = do
-  command <- runFreeT text
+interpret buffers textState = do
+  command <- runFreeT textState
   case command of
 
     Free (Get n) -> do
@@ -264,8 +283,9 @@ interpret buffers text = do
       
     Free (Open str n) -> do
       state <- get
+      bufRef <- liftIO $ newIORef mempty
       let vty' = vty state
-          newBuffer  = emptyTextState vty' str
+          newBuffer  = emptyTextState vty' str bufRef
           buffers'   = state `Z.replace` buffers 
           buffers''  = newBuffer `Z.insert` buffers'
       put newBuffer
@@ -291,6 +311,16 @@ interpret buffers text = do
     Free (MvRight n) -> do
       buffers' <- buffNext buffers
       interpret buffers' n
+
+    Free (ToBuffer f n) -> do
+      ref <- text <$> get
+      liftIO $ modifyIORef' ref f
+      interpret buffers n
+
+    Free (GetBuffer n) -> do
+      ref <- text <$> get
+      buff <- liftIO $ readIORef ref 
+      interpret buffers (n buff)
 
     Pure a -> return a
 

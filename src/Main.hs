@@ -7,6 +7,8 @@ module Main where
     
 import Control.Monad
 import Control.Monad
+import Data.IORef
+
 import Graphics.Vty
 
 import Control.TextMonad
@@ -15,7 +17,8 @@ main :: IO ()
 main = do
   vty <- createVty
   file <- readFile "/home/drew/Documents/Writing/Writing_Ideas-July_11.txt"
-  let state = emptyTextState vty "scratch"
+  ref <- newIORef mempty
+  let state = emptyTextState vty "scratch" ref
   run (start file) state
   shutdown vty
 
