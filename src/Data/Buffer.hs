@@ -15,6 +15,8 @@ module Data.Buffer
   , dropEnd
   , insertAt
   , deleteAmountAt
+  , pointToCursor
+  , cursorToPoint
   , toText
   , atEOL
   , atEnd
@@ -31,6 +33,7 @@ import Prelude hiding (take, drop, lines)
 import Control.Arrow
 import Data.FingerTree
 import Data.Monoid
+import Data.Maybe
 import qualified Data.Text as T
 
 data Size = Size { chunks  :: !Int
@@ -100,10 +103,6 @@ splitAtLine c buffer
   | otherwise = splitAtLine' (c) buffer
 
 -- TODO: Works (I think), generate test and add better documentation.
--- doesn't work in some subtle case
--- works whenever each line is < chunksize. This is because the 1st case of the
--- if branch we only look back one chunk whereas we should look back until the first
--- newline throughout many possible chunks
 splitAtLine' :: Int -> Buffer -> (Buffer, Buffer)
 splitAtLine' c buffer =
   let (l,r) = split ((>c) . lines) buffer
@@ -148,6 +147,56 @@ breakOnEnd' pattern (buff, acc) = case viewr buff of
                 in if mempty == remainder
                    then breakOnEnd' pattern (or, taken `append` acc)
                    else (or `append` remainder, taken `append` acc)
+
+
+-- | Returns the distance till the next instance of pattern.
+--   If the pattern doesn't exist returns 0
+findIndex :: Char -> Buffer -> Maybe Int
+findIndex pattern buffer = findIndex' ((==) pattern) buffer 0
+
+findIndex' pattern buff c = case viewl buff of
+    EmptyL   -> Nothing
+    t :< ts  -> let index = T.findIndex pattern t
+                    leng  = T.length t
+                in case index of
+                     Just a -> Just (a + c)
+                     Nothing -> findIndex' pattern ts (c + leng)
+
+
+-- | Same as findIndex but from the left.
+--   I can't think of many uses for this apart from making certain things faster (i.e. finding cursor).
+findIndexEnd :: Char -> Buffer -> Maybe Int
+findIndexEnd pattern buffer = findIndexEnd' ((==) pattern) buffer 0
+
+findIndexEnd' pattern buff c = case viewr buff of
+    EmptyR   -> Nothing
+  -- Ideally I'd like to do this without the reverse as I don't think it is subject to fusion
+    ts :> t  -> let index = T.findIndex pattern (T.reverse t)
+                    leng  = T.length t
+                in case index of
+                     Just a -> Just (a + c)
+                     Nothing -> findIndexEnd' pattern ts (c + leng)
+
+
+-- | Transforms the point to (rows, cols)
+pointToCursor :: Int -> Buffer -> (Int, Int)
+pointToCursor point buffer =
+  let (l, _) = Data.Buffer.splitAt point buffer
+      line   = lines $ measure l
+      col    = fromMaybe 0 (findIndexEnd '\n' l)
+  in if line == 0
+     then (0, point)
+     else (line, col)
+
+
+cursorToPoint :: (Int, Int) -> Buffer -> Int
+cursorToPoint (0, c) buffer = c
+cursorToPoint (l, c) buffer =
+  let ls = takeLines (l + 1) buffer
+      (left, right) = splitAtLine l ls
+      cols = min c (size right - 1)
+  in size left + cols
+      
 
 take n = fst . Data.Buffer.splitAt n
 drop n = snd . Data.Buffer.splitAt n 

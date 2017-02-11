@@ -46,6 +46,8 @@ loop = do
       EvKey KHome [] -> moveToSOL
       EvKey KLeft [] -> moveColumn (-1)
       EvKey KRight [] -> moveColumn 1
+      EvKey KDown [] -> moveLine 1
+      EvKey KUp [] -> moveLine (-1)
 
       EvKey KLeft [MShift] -> previous 
       EvKey KRight [MShift] -> next 

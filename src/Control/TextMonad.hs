@@ -15,6 +15,7 @@ module Control.TextMonad
   , insertString
   , deleteAmount
   , moveColumn
+  , moveLine
   , moveToEOL
   , moveToSOL
   , setColumn
@@ -87,13 +88,14 @@ instance Functor (TextF e) where
 data TextState = TextState
   { text :: IORef B.Buffer
   , name :: String
-  , col :: Int
+  , point :: Int
+  , preferredCol :: Int -- used for more complex line movements
   , vty :: Vty.Vty
   , picture :: Vty.Image
-  }
+  } 
 
 emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
-emptyTextState vty str ref = TextState ref str 0 vty Vty.emptyImage
+emptyTextState vty str ref = TextState ref str 0 0 vty Vty.emptyImage
 
 
 -- | A monad transformer for controlling the text state
@@ -114,12 +116,40 @@ onBuffer :: Monad m => (B.Buffer -> b) -> TextT m b
 onBuffer f = f <$> getBuffer
   
 
+setPreferredCol c = lift $ modify' fs
+  where fs ts = ts { preferredCol = c }
+
+getPreferredCol :: Monad m => TextT m Int
+getPreferredCol = do
+  state <- lift get
+  return $ preferredCol state
+
+
+  -- | TO CONSIDER: may be doing too many buffer operations
 moveColumn :: Monad m => Int -> TextT m ()
 moveColumn amount = do
   end <- bufferSize
-  let fs ts = ts { col = col' ts amount } 
-      col' ts amount = min end (max 0 (col ts + amount))
+  let fs ts = ts { point = point' ts amount } 
+      point' ts amount = min end (max 0 (point ts + amount))
   lift $ modify' fs
+  (_, c) <- getCursor
+  setPreferredCol c
+
+
+moveLine :: Monad m => Int -> TextT m ()
+moveLine amount = do
+  prefCol <- getPreferredCol
+
+  (r, _) <- getCursor
+  buff   <- getBuffer
+  let newPoint = B.cursorToPoint (r + amount, prefCol) buff
+  setColumn newPoint
+  
+  setPreferredCol prefCol
+
+moveNInLine :: Monad m => Int -> TextT m ()
+moveNInLine n = replicateM_ n $ do
+  whileM_ (not <$> atEOL) (moveColumn 1)
 
 moveToEOL :: Monad m => TextT m ()
 moveToEOL = whileM_ (not <$> atEOL) (moveColumn 1)
@@ -129,25 +159,31 @@ moveToSOL = whileM_ (not <$> atSOL) (moveColumn (-1))
 
 
 setColumn c = lift $ modify' fs
-  where fs ts = ts { col = c }
+  where fs ts = ts { point = c }
 
-getCol :: Monad m => TextT m Int
-getCol = do
+getPoint :: Monad m => TextT m Int
+getPoint = do
   state <- lift get
-  return $ col state
+  return $ point state
+
+
+getCursor :: Monad m => TextT m (Int, Int)
+getCursor = do
+  p <- getPoint
+  onBuffer (B.pointToCursor p)
 
 
 atEOL :: Monad m => TextT m Bool
 atEOL = do
   buffer <- text <$> lift get
-  c <- getCol
+  c <- getPoint
   orM [ onBuffer $ B.atEOL c
       , onBuffer $ B.atEnd c 
       ]
 
 atSOL :: Monad m => TextT m Bool
 atSOL = do
-  c <- getCol
+  c <- getPoint
   orM [ onBuffer $ B.atEOL c 
       , onBuffer $ B.atEnd c
       ]
@@ -167,13 +203,13 @@ insertString = insertBuffer . B.fromText . T.pack
 insertBuffer :: Monad m => B.Buffer -> TextT m ()
 insertBuffer buffer = do
   let amount = B.size buffer
-  column <- getCol
+  column <- getPoint
   toBuffer (B.insertAt column buffer)
   moveColumn amount
 
 deleteAmount :: Monad m => Int -> TextT m ()
 deleteAmount amount = do
-  column <- getCol
+  column <- getPoint
   toBuffer (B.deleteAmountAt amount column)
   moveColumn (-amount)
   
@@ -208,13 +244,17 @@ getBuffer  = liftF (GetBuffer id)
 doEffect :: Monad m => m a -> TextT m a
 doEffect eff = liftF (Effect eff id)
 
+
+--------------------------------------------------------------------------------
 flush :: TextT IO ()
 flush = do
   state <- lift get
+  (r, c) <- getCursor
   let vty' = vty state
       img  = picture state
+      curs = Vty.Cursor c (r + 1)
       pic  = Vty.picForImage img
-  doEffect $ Vty.update vty' pic
+  doEffect $ Vty.update vty' pic { Vty.picCursor = curs} 
 
 outputAsLines :: TextT IO ()
 outputAsLines = do
@@ -226,12 +266,14 @@ drawText = do
   state  <- lift get
   text   <- getBuffer
 
-  let buffer = B.insertAt columns (B.fromString "^") $ text 
-      columns = col state
+  let buffer = text
+      columns = point state
       header = Vty.string Vty.defAttr (name state)
       img = drawSection buffer 80 -- TODO: Make width configurable
+      curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns text
+      pref = Vty.string Vty.defAttr $ show $ preferredCol state
 
-  lift $ put (state {picture = header Vty.<-> img})
+  lift $ put (state {picture = header Vty.<-> img Vty.<-> (curs Vty.<|> pref)})
   
 drawLine :: Int -> B.Buffer -> Vty.Image
 drawLine width buffer = Vty.text' Vty.defAttr $ B.toText paddedBuffer
