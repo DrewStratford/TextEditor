@@ -89,13 +89,13 @@ data TextState = TextState
   { text :: IORef B.Buffer
   , name :: String
   , point :: Int
-  , preferredCol :: Int -- used for more complex line movements
+  , preferredCol :: Maybe Int -- used for more complex line movements
   , vty :: Vty.Vty
   , picture :: Vty.Image
   } 
 
 emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
-emptyTextState vty str ref = TextState ref str 0 0 vty Vty.emptyImage
+emptyTextState vty str ref = TextState ref str 0 Nothing vty Vty.emptyImage
 
 
 -- | A monad transformer for controlling the text state
@@ -119,33 +119,34 @@ onBuffer f = f <$> getBuffer
 setPreferredCol c = lift $ modify' fs
   where fs ts = ts { preferredCol = c }
 
-getPreferredCol :: Monad m => TextT m Int
+getPreferredCol :: Monad m => TextT m (Maybe Int)
 getPreferredCol = do
   state <- lift get
   return $ preferredCol state
 
 
-  -- | TO CONSIDER: may be doing too many buffer operations
 moveColumn :: Monad m => Int -> TextT m ()
 moveColumn amount = do
   end <- bufferSize
   let fs ts = ts { point = point' ts amount } 
       point' ts amount = min end (max 0 (point ts + amount))
   lift $ modify' fs
-  (_, c) <- getCursor
-  setPreferredCol c
+  -- must reset preferredCol as column has been changed
+  setPreferredCol Nothing
 
 
 moveLine :: Monad m => Int -> TextT m ()
 moveLine amount = do
   prefCol <- getPreferredCol
-
-  (r, _) <- getCursor
+  (r, c) <- getCursor
   buff   <- getBuffer
-  let newPoint = B.cursorToPoint (r + amount, prefCol) buff
+  -- if first line move in a while, so must set preferredCol
+  when (isNothing prefCol) $ do
+    setPreferredCol (Just c)
+  Just col <- getPreferredCol -- This seems hacky, though, it should always work due to the above when
+  let newPoint = B.cursorToPoint (r + amount, col) buff
   setColumn newPoint
   
-  setPreferredCol prefCol
 
 moveNInLine :: Monad m => Int -> TextT m ()
 moveNInLine n = replicateM_ n $ do
