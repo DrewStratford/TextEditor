@@ -193,17 +193,17 @@ count pattern = foldl (+) 0 . fmap (T.count pattern) . toList
 
 
 -- | Transforms the point to (rows, cols)
+-- TO CONSIDER: a version that doesn't account for tabs
 pointToCursor :: Int -> Int -> Buffer -> (Int, Int)
 pointToCursor point indent buffer =
   let (l, _) = Data.Buffer.splitAt point buffer
       line = snd $ breakOnEnd "\n" l
       lineCount = lines $ measure l
       col    = length $ expandTabs indent $ T.unpack $ toText line
-  in if lineCount == 0
-     then (0, point) -- should look for tabs
-     else (lineCount, col)
+  in (lineCount, col)
 
 
+-- TODO: this doesn't work when moving to a line with a tab
 cursorToPoint :: (Int, Int) -> Buffer -> Int
 cursorToPoint (0, c) buffer = c
 cursorToPoint (l, c) buffer =
