@@ -16,12 +16,15 @@ module Control.TextMonad
   , deleteAmount
   , moveColumn
   , moveLine
+  , moveRight
+  , moveLeft
   , moveToEOL
   , moveToSOL
-  , setColumn
+  , setPoint
   
   , flush
   , drawText
+  , saveFile
 
   , outputAsLines
   , run
@@ -40,6 +43,7 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import System.IO
 
 import qualified Graphics.Vty as Vty
@@ -90,12 +94,15 @@ data TextState = TextState
   , name :: String
   , point :: Int
   , preferredCol :: Maybe Int -- used for more complex line movements
-  , vty :: Vty.Vty
+  , topScrollLine :: Int
+  , tabSize :: Int
+  , vty :: Vty.Vty -- Ideally this will be moved out
   , picture :: Vty.Image
+  , unsavedChanges :: Bool
   } 
 
 emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
-emptyTextState vty str ref = TextState ref str 0 Nothing vty Vty.emptyImage
+emptyTextState vty str ref = TextState ref str 0 Nothing 0 8 vty Vty.emptyImage False
 
 
 -- | A monad transformer for controlling the text state
@@ -140,17 +147,30 @@ moveLine amount = do
   prefCol <- getPreferredCol
   (r, c) <- getCursor
   buff   <- getBuffer
-  -- if first line move in a while, so must set preferredCol
+
+  -- if first line move in a while, we must set preferredCol
   when (isNothing prefCol) $ do
     setPreferredCol (Just c)
   Just col <- getPreferredCol -- This seems hacky, though, it should always work due to the above when
-  let newPoint = B.cursorToPoint (r + amount, col) buff
-  setColumn newPoint
+
+  let newPoint = B.cursorToPoint (targetLine, col) buff
+      targetLine = min end $ max 0 (r + amount)
+      end = B.lineCount buff
+
+  if targetLine < 0 || targetLine >= end
+    then return ()
+    else setPoint newPoint
   
 
 moveNInLine :: Monad m => Int -> TextT m ()
 moveNInLine n = replicateM_ n $ do
   whileM_ (not <$> atEOL) (moveColumn 1)
+
+moveLeft :: Monad m => TextT m ()
+moveLeft = do b <- atSOL; unless b (moveColumn (-1))
+
+moveRight :: Monad m => TextT m ()
+moveRight = do b <- atEOL; unless b (moveColumn 1)
 
 moveToEOL :: Monad m => TextT m ()
 moveToEOL = whileM_ (not <$> atEOL) (moveColumn 1)
@@ -158,8 +178,28 @@ moveToEOL = whileM_ (not <$> atEOL) (moveColumn 1)
 moveToSOL :: Monad m => TextT m ()
 moveToSOL = whileM_ (not <$> atSOL) (moveColumn (-1))
 
+scrollLine :: Monad m => Int -> TextT m ()
+scrollLine screenHeight = do
+  curScrollLine <- getScrollLine
+  (l, c) <- getCursor
+  let deltaUp   = l - curScrollLine
+      deltaDown = l - (curScrollLine + screenHeight)
+  if l <= curScrollLine
+    then setScrollLine (curScrollLine + deltaUp)
+    else if l >= curScrollLine + screenHeight
+    then setScrollLine (curScrollLine + deltaDown)
+    else return ()
 
-setColumn c = lift $ modify' fs
+setScrollLine s = lift $ modify' fs
+  where fs ts = ts { topScrollLine = s }
+
+getScrollLine :: Monad m => TextT m Int
+getScrollLine = do
+  state <- lift get
+  return $ topScrollLine state
+
+  
+setPoint c = lift $ modify' fs
   where fs ts = ts { point = c }
 
 getPoint :: Monad m => TextT m Int
@@ -171,12 +211,13 @@ getPoint = do
 getCursor :: Monad m => TextT m (Int, Int)
 getCursor = do
   p <- getPoint
-  onBuffer (B.pointToCursor p)
+  state <- lift  get
+  let tabWidth = tabSize state
+  onBuffer (B.pointToCursor p tabWidth)
 
 
 atEOL :: Monad m => TextT m Bool
 atEOL = do
-  buffer <- text <$> lift get
   c <- getPoint
   orM [ onBuffer $ B.atEOL c
       , onBuffer $ B.atEnd c 
@@ -185,8 +226,8 @@ atEOL = do
 atSOL :: Monad m => TextT m Bool
 atSOL = do
   c <- getPoint
-  orM [ onBuffer $ B.atEOL c 
-      , onBuffer $ B.atEnd c
+  orM [ onBuffer $ B.atEOL (c - 1) 
+      , return (c == 0)
       ]
 
 insertText :: Monad m => T.Text -> TextT m ()
@@ -250,10 +291,15 @@ doEffect eff = liftF (Effect eff id)
 flush :: TextT IO ()
 flush = do
   state <- lift get
+  -- TODO make this tidier
+  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface (vty state)
+  scrollLine (height - 2)
   (r, c) <- getCursor
+  topLine <- getScrollLine
+  
   let vty' = vty state
       img  = picture state
-      curs = Vty.Cursor c (r + 1)
+      curs = Vty.Cursor c ((r + 1) - topLine)
       pic  = Vty.picForImage img
   doEffect $ Vty.update vty' pic { Vty.picCursor = curs} 
 
@@ -262,34 +308,45 @@ outputAsLines = do
   text <- getBuffer
   doEffect (mapM_ (print) $ take 80 $ B.toLines $ text)
 
-drawText :: Monad m => TextT m ()
+drawText :: TextT IO ()
 drawText = do
   state  <- lift get
   text   <- getBuffer
+  topLine <- getScrollLine
+  -- TODO make this tidier
+  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface (vty state)
 
-  let buffer = text
+  let buffer = B.takeLines (height - 2) $ B.dropLines topLine text
       columns = point state
       header = Vty.string Vty.defAttr (name state)
-      img = drawSection buffer 80 -- TODO: Make width configurable
-      curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns text
-      pref = Vty.string Vty.defAttr $ show $ preferredCol state
+      img = drawSection buffer width (tabSize state)
+      curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns (tabSize state) text
+      pref = Vty.string Vty.defAttr $ show $ B.measure text
 
   lift $ put (state {picture = header Vty.<-> img Vty.<-> (curs Vty.<|> pref)})
   
-drawLine :: Int -> B.Buffer -> Vty.Image
-drawLine width buffer = Vty.text' Vty.defAttr $ B.toText paddedBuffer
-  where paddedBuffer = B.take width $ B.dropEnd 1 buffer
+-- TO FIX takes one character it shouldn't on the final line.
+drawLine :: Int -> Int -> B.Buffer -> Vty.Image
+drawLine width indent buffer = Vty.string Vty.defAttr paddedBuffer
+  -- this could be made easier to read
+  where paddedBuffer = B.expandTabs indent $ T.unpack $ B.toText $ B.take width $ B.dropEnd 1 buffer
         
 --  TextBuffer to draw from, x, y, width of section, height of section
-drawSection :: B.Buffer -> Int -> Vty.Image
-drawSection text width =
-  Vty.vertCat $ map (drawLine 80) (B.toLines text)
+drawSection :: B.Buffer -> Int -> Int ->  Vty.Image
+drawSection text width indent =
+  Vty.vertCat $ map (drawLine 80 indent) (B.toLines text)
 
   
-padString :: Int -> String -> String
-padString indent = concatMap expand
-  where expand '\t' = [' ' | _ <- [0 .. indent]]
-        expand c    = [c]
+  
+--------------------------------------------------------------------------------
+
+
+saveFile :: TextT IO ()
+saveFile = do
+  name <- name <$> lift get
+  asText <- B.toText <$> getBuffer
+  liftIO $ T.writeFile (name ++ "!") asText
+  return ()
 --------------------------------------------------------------------------------
 -- The interpreter
   {-

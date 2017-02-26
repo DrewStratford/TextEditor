@@ -8,6 +8,8 @@ module Main where
 import Control.Monad
 import Control.Monad
 import Data.IORef
+import qualified Data.Text.IO as T
+import qualified Data.Text as T
 
 import Graphics.Vty
 
@@ -16,16 +18,19 @@ import Control.TextMonad
 main :: IO ()
 main = do
   vty <- createVty
-  file <- readFile "/home/drew/Documents/Writing/Writing_Ideas-July_11.txt"
+  file <- T.readFile "/home/drew/Documents/Writing/Writing_Ideas-July_11.txt"
+  --file <- T.readFile "war_and_peace.txt" -- ~3mb good for speed testing
+  --file <- T.readFile "big.txt" -- ~9mb good for speed testing
+  --file <- T.readFile "bigger.txt" -- ~29mb good for speed testing
   ref <- newIORef mempty
   let state = emptyTextState vty "scratch" ref
   run (start file) state
   shutdown vty
 
-start :: String -> TextT IO ()
+start :: T.Text -> TextT IO ()
 start file = do
-  insertString file
-  setColumn 0
+  insertText file
+  setPoint 0
   drawText
   flush
   loop
@@ -38,14 +43,17 @@ loop = do
       EvKey (KChar c) [] -> insertChar c
       EvKey KBS []       -> deleteAmount 1
       EvKey KEnter []    -> insertText "\n"
-      EvKey (KChar 'o') [MCtrl] -> open "test"
+      EvKey (KChar 'o') [MCtrl] -> open "(*new*)"
+      EvKey (KChar 's') [MCtrl] -> saveFile
       EvKey (KChar 'x') [MCtrl] -> close
       --EvKey (KChar 'q') [MCtrl] -> askQuestion "enter something" >>= insertString
         
+      EvKey KPageDown [] -> moveLine 45
+      EvKey KPageUp [] -> moveLine (-45)
       EvKey KEnd [] -> moveToEOL
       EvKey KHome [] -> moveToSOL
-      EvKey KLeft [] -> moveColumn (-1)
-      EvKey KRight [] -> moveColumn 1
+      EvKey KLeft [] -> moveLeft
+      EvKey KRight [] -> moveRight
       EvKey KDown [] -> moveLine 1
       EvKey KUp [] -> moveLine (-1)
 

@@ -1,25 +1,33 @@
 {-# LANGUAGE OverloadedStrings, MultiParamTypeClasses, BangPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
 module Data.Buffer
   ( Buffer
   , measure
   , size
+  , lineCount
   , append
   , fromText
+  , toText
   , fromString
   , Data.Buffer.splitAt
   , splitAtLine
   , toLines
   , take
+  , takeLines
   , drop
+  , dropLines
   , takeEnd
   , dropEnd
+
   , insertAt
   , deleteAmountAt
   , pointToCursor
   , cursorToPoint
-  , toText
+
   , atEOL
   , atEnd
+
+  , expandTabs
   ) where
 
 
@@ -30,6 +38,7 @@ module Data.Buffer
 
 
 import Prelude hiding (take, drop, lines)
+import qualified Prelude as P
 import Control.Arrow
 import Data.FingerTree
 import Data.Monoid
@@ -51,8 +60,8 @@ instance Measured Size T.Text where
 
 type Buffer = FingerTree Size T.Text
 
--- | The max chunksize for each Text segment (should probably be much higher)
-chunkSize = 256
+-- | The max chunksize for each Text segment 
+chunkSize = 1048
 nl = fromText "\n"
 
 countNLs = T.count "\n"
@@ -68,6 +77,8 @@ toText = T.concat . toList
 size :: Buffer -> Int
 size = columns . measure
 
+lineCount :: Buffer -> Int
+lineCount = lines . measure
 
 append :: Buffer -> Buffer -> Buffer
 append lBuff rBuff = case (viewr lBuff, viewl rBuff) of
@@ -177,16 +188,20 @@ findIndexEnd' pattern buff c = case viewr buff of
                      Just a -> Just (a + c)
                      Nothing -> findIndexEnd' pattern ts (c + leng)
 
+count :: T.Text -> Buffer -> Int
+count pattern = foldl (+) 0 . fmap (T.count pattern) . toList
+
 
 -- | Transforms the point to (rows, cols)
-pointToCursor :: Int -> Buffer -> (Int, Int)
-pointToCursor point buffer =
+pointToCursor :: Int -> Int -> Buffer -> (Int, Int)
+pointToCursor point indent buffer =
   let (l, _) = Data.Buffer.splitAt point buffer
-      line   = lines $ measure l
-      col    = fromMaybe 0 (findIndexEnd '\n' l)
-  in if line == 0
-     then (0, point)
-     else (line, col)
+      line = snd $ breakOnEnd "\n" l
+      lineCount = lines $ measure l
+      col    = length $ expandTabs indent $ T.unpack $ toText line
+  in if lineCount == 0
+     then (0, point) -- should look for tabs
+     else (lineCount, col)
 
 
 cursorToPoint :: (Int, Int) -> Buffer -> Int
@@ -237,3 +252,18 @@ splitNLines n text = T.concat `both` Prelude.splitAt n asLines
         addNLs [] = []
         addNLs [x] = [x]
         addNLs (x:xs) = (x `T.snoc` '\n') : addNLs xs
+
+{- | Expands out all the strings in the string by the given indent amount.
+     TODO: consider giving a list of tabstops of varying amount
+-}
+expandTabs :: Int -> String -> String
+expandTabs indent = expandTabs' indent 0
+
+expandTabs' _ _ [] = []
+expandTabs' indent i ('\t' : cs) =
+  let nextTab = (1 + (i `div` indent)) * 8
+      m = nextTab - i
+      padding = P.take m $ repeat ' '
+  in padding ++ expandTabs' indent (i + m) cs
+expandTabs' indent i ('\n' : cs) = '\n' : expandTabs' indent 0 cs
+expandTabs' indent i (c : cs) = c : expandTabs' indent (i+1) cs
