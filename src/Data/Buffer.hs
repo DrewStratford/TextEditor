@@ -204,13 +204,16 @@ pointToCursor point indent buffer =
 
 
 -- TODO: this doesn't work when moving to a line with a tab
+-- TODO: pass in tab
 cursorToPoint :: (Int, Int) -> Buffer -> Int
 cursorToPoint (0, c) buffer = c
 cursorToPoint (l, c) buffer =
   let ls = takeLines (l + 1) buffer
       (left, right) = splitAtLine l ls
       cols = min c (size right - 1)
-  in size left + cols
+  --in size left + cols
+  -- needs tab width to work
+  in size left + findColWithTabs 8 c right
       
 
 take n = fst . Data.Buffer.splitAt n
@@ -240,6 +243,7 @@ a = fromString "one\ntwo\nthree"
 b = fromString "\nFOUR\nFIVE"
 
 test = fromString "A job interview for a janitorial position\n-----------------------------------------"
+tabTest = fromString "a\tbased"
 
 -- helpers
 both f (a,b) = (f a, f b)
@@ -259,11 +263,46 @@ splitNLines n text = T.concat `both` Prelude.splitAt n asLines
 expandTabs :: Int -> String -> String
 expandTabs indent = expandTabs' indent 0
 
+
 expandTabs' _ _ [] = []
 expandTabs' indent i ('\t' : cs) =
-  let nextTab = (1 + (i `div` indent)) * 8
-      m = nextTab - i
+  let m = (nextTabStop indent i) - i
       padding = P.take m $ repeat ' '
   in padding ++ expandTabs' indent (i + m) cs
+
 expandTabs' indent i ('\n' : cs) = '\n' : expandTabs' indent 0 cs
 expandTabs' indent i (c : cs) = c : expandTabs' indent (i+1) cs
+
+
+nextTabStop :: Int -> Int -> Int
+nextTabStop tabSize i = (1 + (i `div` tabSize)) * tabSize
+
+-- folds on the underlying text (using Data.Text's fold on the chunks)
+foldRBuffer :: (Char -> a -> a) -> a -> Buffer -> a
+foldRBuffer f def (viewl -> t :< ts) =
+  let tail = foldRBuffer f def ts
+  in T.foldr f tail t
+foldRBuffer _ def _ = def  
+
+
+foldLBuffer :: (a -> Char -> a) -> a -> Buffer -> a
+foldLBuffer f def (viewl -> t :< ts) =
+  let tail = foldLBuffer f def ts
+  in T.foldl f tail t
+foldLBuffer _ def _ = def  
+
+
+-- this is to find the 'limit' column when dealing with tabs
+-- not sure what to call this as it is pretty insane, I think it works though.
+-- We could make a much simpler version using toString and basic recursion, but that is not as cool
+-- (or as fast?).
+findColWithTabs :: Int -> Int -> Buffer ->  Int
+findColWithTabs indent limit buff = snd $ foldRBuffer g id buff (0,0)
+  -- we use a pretty complicated fold to generate a function that will keep track of the visual and
+  -- actual column. Note we "terminate" the function by not evaluating the cont when we come across
+  -- a \n, this is to ensure that we don't skip lines.
+  where g '\n' _ (i, col) = (i, col)
+        g c cont (i, col) = if f c i > limit then (i, col) else cont (f c i, col + 1)
+        f '\t' i = nextTabStop indent i
+        f _    i =  i +1
+    
