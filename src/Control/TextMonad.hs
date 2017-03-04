@@ -126,13 +126,14 @@ moveLine amount = do
   prefCol <- use preferredCol
   (r, c) <- getCursor
   buff   <- getBuffer
+  tabs <- use tabSize
 
   -- if first line move in a while, we must set preferredCol
   when (isNothing prefCol) $ do
     assign preferredCol (Just c)
   Just col <- use preferredCol -- This seems hacky, though, it should always work due to the above when
 
-  let newPoint = B.cursorToPoint (targetLine, col) buff
+  let newPoint = B.cursorToPoint tabs (targetLine, col) buff
       targetLine = min end $ max 0 (r + amount)
       end = B.lineCount buff
 

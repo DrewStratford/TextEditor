@@ -205,15 +205,15 @@ pointToCursor point indent buffer =
 
 -- TODO: this doesn't work when moving to a line with a tab
 -- TODO: pass in tab
-cursorToPoint :: (Int, Int) -> Buffer -> Int
-cursorToPoint (0, c) buffer = c
-cursorToPoint (l, c) buffer =
+cursorToPoint :: Int -> (Int, Int) -> Buffer -> Int
+-- cursorToPoint _ (0, c) buffer = c
+cursorToPoint indent (l, c) buffer =
   let ls = takeLines (l + 1) buffer
       (left, right) = splitAtLine l ls
       cols = min c (size right - 1)
   --in size left + cols
   -- needs tab width to work
-  in size left + findColWithTabs 8 c right
+  in size left + findColWithTabs indent c right
       
 
 take n = fst . Data.Buffer.splitAt n
