@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFunctor, RankNTypes, ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Control.TextMonad
   ( emptyTextState
-  , TextState
   , TextT
 
   , getKey
@@ -20,7 +20,6 @@ module Control.TextMonad
   , moveLeft
   , moveToEOL
   , moveToSOL
-  , setPoint
   
   , flush
   , drawText
@@ -28,6 +27,9 @@ module Control.TextMonad
 
   , outputAsLines
   , run
+  
+  , module Lens.Micro.Mtl
+  , point
   ) where
 
 import Control.Monad
@@ -47,10 +49,13 @@ import qualified Data.Text.IO as T
 import System.IO
 
 import qualified Graphics.Vty as Vty
-
-import qualified Zip.Zip as Z
+import Lens.Micro
+import Lens.Micro.TH
+import Lens.Micro.Mtl
 
 import qualified Data.Buffer as B
+import qualified Zip.Zip as Z
+
 
 {-
   TO CONSIDER:
@@ -90,16 +95,18 @@ instance Functor (TextF e) where
 
   
 data TextState = TextState
-  { text :: IORef B.Buffer
-  , name :: String
-  , point :: Int
-  , preferredCol :: Maybe Int -- used for more complex line movements
-  , topScrollLine :: Int
-  , tabSize :: Int
-  , vty :: Vty.Vty -- Ideally this will be moved out
-  , picture :: Vty.Image
-  , unsavedChanges :: Bool
+  { _text :: IORef B.Buffer
+  , _name :: String
+  , _point :: Int
+  , _preferredCol :: Maybe Int -- used for more complex line movements
+  , _topScrollLine :: Int
+  , _tabSize :: Int
+  , _vty :: Vty.Vty -- Ideally this will be moved out
+  , _picture :: Vty.Image
+  , _unsavedChanges :: Bool
   } 
+
+makeLenses ''TextState
 
 emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
 emptyTextState vty str ref = TextState ref str 0 Nothing 0 8 vty Vty.emptyImage False
@@ -121,37 +128,24 @@ bufferSize = do
 
 onBuffer :: Monad m => (B.Buffer -> b) -> TextT m b
 onBuffer f = f <$> getBuffer
-  
-
-setPreferredCol c = lift $ modify' fs
-  where fs ts = ts { preferredCol = c }
-
-getPreferredCol :: Monad m => TextT m (Maybe Int)
-getPreferredCol = do
-  state <- lift get
-  return $ preferredCol state
 
 
 moveColumn :: Monad m => Int -> TextT m ()
 moveColumn amount = do
-  end <- bufferSize
-  let fs ts = ts { point = point' ts amount } 
-      point' ts amount = min end (max 0 (point ts + amount))
-  lift $ modify' fs
-  -- must reset preferredCol as column has been changed
-  setPreferredCol Nothing
+  modifying point (\x -> max 0 (x + amount))
+  preferredCol .= Nothing
 
 
 moveLine :: Monad m => Int -> TextT m ()
 moveLine amount = do
-  prefCol <- getPreferredCol
+  prefCol <- use preferredCol
   (r, c) <- getCursor
   buff   <- getBuffer
 
   -- if first line move in a while, we must set preferredCol
   when (isNothing prefCol) $ do
-    setPreferredCol (Just c)
-  Just col <- getPreferredCol -- This seems hacky, though, it should always work due to the above when
+    assign preferredCol (Just c)
+  Just col <- use preferredCol -- This seems hacky, though, it should always work due to the above when
 
   let newPoint = B.cursorToPoint (targetLine, col) buff
       targetLine = min end $ max 0 (r + amount)
@@ -159,7 +153,7 @@ moveLine amount = do
 
   if targetLine < 0 || targetLine >= end
     then return ()
-    else setPoint newPoint
+    else point .= newPoint
   
 
 moveNInLine :: Monad m => Int -> TextT m ()
@@ -180,78 +174,59 @@ moveToSOL = whileM_ (not <$> atSOL) (moveColumn (-1))
 
 scrollLine :: Monad m => Int -> TextT m ()
 scrollLine screenHeight = do
-  curScrollLine <- getScrollLine
+  curScrollLine <- use topScrollLine
   (l, c) <- getCursor
   let deltaUp   = l - curScrollLine
       deltaDown = l - (curScrollLine + screenHeight)
   if l <= curScrollLine
-    then setScrollLine (curScrollLine + deltaUp)
+    then assign topScrollLine (curScrollLine + deltaUp)
     else if l >= curScrollLine + screenHeight
-    then setScrollLine (curScrollLine + deltaDown)
+    then assign topScrollLine (curScrollLine + deltaDown)
     else return ()
-
-setScrollLine s = lift $ modify' fs
-  where fs ts = ts { topScrollLine = s }
-
-getScrollLine :: Monad m => TextT m Int
-getScrollLine = do
-  state <- lift get
-  return $ topScrollLine state
-
-  
-setPoint c = lift $ modify' fs
-  where fs ts = ts { point = c }
-
-getPoint :: Monad m => TextT m Int
-getPoint = do
-  state <- lift get
-  return $ point state
 
 
 getCursor :: Monad m => TextT m (Int, Int)
 getCursor = do
-  p <- getPoint
-  state <- lift  get
-  let tabWidth = tabSize state
+  p        <- use point
+  tabWidth <- use tabSize
   onBuffer (B.pointToCursor p tabWidth)
 
 
 atEOL :: Monad m => TextT m Bool
 atEOL = do
-  c <- getPoint
+  c <- use point
   orM [ onBuffer $ B.atEOL c
       , onBuffer $ B.atEnd c 
       ]
 
 atSOL :: Monad m => TextT m Bool
 atSOL = do
-  c <- getPoint
+  c <- use point
   orM [ onBuffer $ B.atEOL (c - 1) 
       , return (c == 0)
       ]
 
+-- Insertions into the buffer. At their root they are casts and calls to insertBuffer
 insertText :: Monad m => T.Text -> TextT m ()
 insertText = insertBuffer . B.fromText
-
-
 
 insertChar :: Monad m => Char -> TextT m ()
 insertChar = insertBuffer . B.fromText . T.singleton
 
-  
 insertString :: Monad m => String -> TextT m ()
 insertString = insertBuffer . B.fromText . T.pack
 
 insertBuffer :: Monad m => B.Buffer -> TextT m ()
 insertBuffer buffer = do
   let amount = B.size buffer
-  column <- getPoint
+  column <- use point
   toBuffer (B.insertAt column buffer)
   moveColumn amount
 
+
 deleteAmount :: Monad m => Int -> TextT m ()
 deleteAmount amount = do
-  column <- getPoint
+  column <- use point
   toBuffer (B.deleteAmountAt amount column)
   moveColumn (-amount)
   
@@ -260,7 +235,6 @@ deleteAmount amount = do
 -- Some helpers
 getKey :: Monad m => TextT m Vty.Event
 getKey = liftF (Get id)
-
   
 puts :: String -> Monad m => TextT m ()
 puts str = liftF (Put str ())
@@ -290,40 +264,45 @@ doEffect eff = liftF (Effect eff id)
 --------------------------------------------------------------------------------
 flush :: TextT IO ()
 flush = do
-  state <- lift get
+  vty'    <- use vty
   -- TODO make this tidier
-  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface (vty state)
+  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface vty' 
   scrollLine (height - 2)
-  (r, c) <- getCursor
-  topLine <- getScrollLine
+  (r, c)  <- getCursor
+  topLine <- use topScrollLine
+  img     <- use picture
   
-  let vty' = vty state
-      img  = picture state
-      curs = Vty.Cursor c ((r + 1) - topLine)
+  let curs = Vty.Cursor c ((r + 1) - topLine)
       pic  = Vty.picForImage img
   doEffect $ Vty.update vty' pic { Vty.picCursor = curs} 
+
 
 outputAsLines :: TextT IO ()
 outputAsLines = do
   text <- getBuffer
   doEffect (mapM_ (print) $ take 80 $ B.toLines $ text)
 
+
 drawText :: TextT IO ()
 drawText = do
-  state  <- lift get
   text   <- getBuffer
-  topLine <- getScrollLine
+  topLine <- use topScrollLine
+  vty <- use vty
   -- TODO make this tidier
-  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface (vty state)
+  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface vty
+
+  columns <- use point
+  name    <- use name
+  tabSize <- use tabSize
 
   let buffer = B.takeLines (height - 2) $ B.dropLines topLine text
-      columns = point state
-      header = Vty.string Vty.defAttr (name state)
-      img = drawSection buffer width (tabSize state)
-      curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns (tabSize state) text
+      header = Vty.string Vty.defAttr name
+      img = drawSection buffer width tabSize 
+      curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns tabSize text
       pref = Vty.string Vty.defAttr $ show $ B.measure text
 
-  lift $ put (state {picture = header Vty.<-> img Vty.<-> (curs Vty.<|> pref)})
+  assign picture (header Vty.<-> img Vty.<-> (curs Vty.<|> pref))
+
   
 -- TO FIX takes one character it shouldn't on the final line.
 drawLine :: Int -> Int -> B.Buffer -> Vty.Image
@@ -343,11 +322,13 @@ drawSection text width indent =
 
 saveFile :: TextT IO ()
 saveFile = do
-  name <- name <$> lift get
+  name <- use name 
   asText <- B.toText <$> getBuffer
   liftIO $ T.writeFile (name ++ "!") asText
   return ()
+
 --------------------------------------------------------------------------------
+
 -- The interpreter
   {-
      At the moment this is pretty basic interpreter
@@ -369,7 +350,7 @@ interpret buffers textState = do
   case command of
 
     Free (Get n) -> do
-      vty <- vty <$> get
+      vty <- use vty
       key <- liftIO $ Vty.nextEvent vty
       interpret buffers (n key)
 
@@ -382,10 +363,10 @@ interpret buffers textState = do
       interpret buffers (n e)
       
     Free (Open str n) -> do
+      vty <- use vty
       state <- get
       bufRef <- liftIO $ newIORef mempty
-      let vty' = vty state
-          newBuffer  = emptyTextState vty' str bufRef
+      let newBuffer  = emptyTextState vty str bufRef
           buffers'   = state `Z.replace` buffers 
           buffers''  = newBuffer `Z.insert` buffers'
       put newBuffer
@@ -413,12 +394,12 @@ interpret buffers textState = do
       interpret buffers' n
 
     Free (ToBuffer f n) -> do
-      ref <- text <$> get
+      ref <- use text 
       liftIO $ modifyIORef' ref f
       interpret buffers n
 
     Free (GetBuffer n) -> do
-      ref <- text <$> get
+      ref <- use text 
       buff <- liftIO $ readIORef ref 
       interpret buffers (n buff)
 

@@ -30,7 +30,7 @@ main = do
 start :: T.Text -> TextT IO ()
 start file = do
   insertText file
-  setPoint 0
+  point .= 0
   drawText
   flush
   loop
