@@ -1,11 +1,10 @@
-{-# LANGUAGE DeriveFunctor, RankNTypes, ExistentialQuantification #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Control.TextMonad
   ( emptyTextState
   , TextT
 
   , getKey
-  , doEffect
   , open
   , close
   , next
@@ -60,14 +59,12 @@ import qualified Zip.Zip as Z
 {-
   TO CONSIDER:
   We may be able better modularise the display commands
-  (e.g. Vsplit etc.) as a parametric value similar to
-  effect
+  (e.g. Vsplit etc.) as a parametric value 
 -}
 data InputRequest = Wait Int | Block
-data TextF effect next =
+data TextF next =
     Get (Vty.Event -> next)
   | Put String next
-  | forall a. Effect (effect a) (a -> next)
   -- opening and swapping between buffers
   | Open String next
   | Close next
@@ -79,19 +76,7 @@ data TextF effect next =
   --
   | ToBuffer (B.Buffer -> B.Buffer) next
   | GetBuffer (B.Buffer -> next)
-
-instance Functor (TextF e) where
-  fmap f (Get g)           = Get (f . g)
-  fmap f (Put str n)       = Put str (f n)
-  fmap f (Effect eff n)    = Effect eff (f . n)
-  fmap f (Open str n)      = Open str (f n)
-  fmap f (Close n)         = Close (f n)
-  fmap f (Swap str n)      = Swap str (f n)
-  fmap f (Vsplit n)        = Vsplit (f n)
-  fmap f (MvLeft n)        = MvLeft (f n)
-  fmap f (MvRight n)       = MvRight (f n)
-  fmap f (ToBuffer g next) = ToBuffer g (f next)
-  fmap f (GetBuffer g)     = GetBuffer (f . g)
+  deriving (Functor)
 
   
 data TextState = TextState
@@ -113,7 +98,7 @@ emptyTextState vty str ref = TextState ref str 0 Nothing 0 8 vty Vty.emptyImage 
 
 
 -- | A monad transformer for controlling the text state
-type TextT m = FreeT (TextF m) (StateT TextState m)
+type TextT m = FreeT TextF (StateT TextState m)
 
 
 {-
@@ -236,10 +221,8 @@ deleteAmount amount = do
 getKey :: Monad m => TextT m Vty.Event
 getKey = liftF (Get id)
   
-puts :: String -> Monad m => TextT m ()
-puts str = liftF (Put str ())
 
-open :: String -> Monad m => TextT m ()
+open :: Monad m => String -> TextT m ()
 open str = liftF (Open str ())
 
 close :: Monad m => TextT m ()
@@ -257,16 +240,13 @@ toBuffer f = liftF (ToBuffer f ())
 getBuffer :: Monad m => TextT m B.Buffer
 getBuffer  = liftF (GetBuffer id)
   
-doEffect :: Monad m => m a -> TextT m a
-doEffect eff = liftF (Effect eff id)
-
-
 --------------------------------------------------------------------------------
+
 flush :: TextT IO ()
 flush = do
   vty'    <- use vty
   -- TODO make this tidier
-  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface vty' 
+  (width, height) <- liftIO $ Vty.displayBounds $ Vty.outputIface vty' 
   scrollLine (height - 2)
   (r, c)  <- getCursor
   topLine <- use topScrollLine
@@ -274,13 +254,13 @@ flush = do
   
   let curs = Vty.Cursor c ((r + 1) - topLine)
       pic  = Vty.picForImage img
-  doEffect $ Vty.update vty' pic { Vty.picCursor = curs} 
+  liftIO $ Vty.update vty' pic { Vty.picCursor = curs} 
 
 
 outputAsLines :: TextT IO ()
 outputAsLines = do
   text <- getBuffer
-  doEffect (mapM_ (print) $ take 80 $ B.toLines $ text)
+  liftIO (mapM_ (print) $ take 80 $ B.toLines $ text)
 
 
 drawText :: TextT IO ()
@@ -289,7 +269,7 @@ drawText = do
   topLine <- use topScrollLine
   vty <- use vty
   -- TODO make this tidier
-  (width, height) <- doEffect $ Vty.displayBounds $ Vty.outputIface vty
+  (width, height) <- liftIO $ Vty.displayBounds $ Vty.outputIface vty
 
   columns <- use point
   name    <- use name
@@ -358,10 +338,6 @@ interpret buffers textState = do
       liftIO $ putStrLn str
       interpret buffers n
 
-    Free (Effect eff n) -> do
-      e <- liftIO eff
-      interpret buffers (n e)
-      
     Free (Open str n) -> do
       vty <- use vty
       state <- get
