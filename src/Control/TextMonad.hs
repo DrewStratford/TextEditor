@@ -29,6 +29,8 @@ module Control.TextMonad
   
   , module Lens.Micro.Mtl
   , point
+  , screenHeight
+  , screenWidth
   ) where
 
 import Control.Monad
@@ -89,12 +91,14 @@ data TextState = TextState
   , _vty :: Vty.Vty -- Ideally this will be moved out
   , _picture :: Vty.Image
   , _unsavedChanges :: Bool
+  , _screenHeight :: Int
+  , _screenWidth :: Int
   } 
 
 makeLenses ''TextState
 
 emptyTextState :: Vty.Vty -> String -> (IORef B.Buffer) -> TextState
-emptyTextState vty str ref = TextState ref str 0 Nothing 0 8 vty Vty.emptyImage False
+emptyTextState vty str ref = TextState ref str 0 Nothing 0 8 vty Vty.emptyImage False 0 0
 
 
 -- | A monad transformer for controlling the text state
@@ -158,16 +162,17 @@ moveToEOL = whileM_ (not <$> atEOL) (moveColumn 1)
 moveToSOL :: Monad m => TextT m ()
 moveToSOL = whileM_ (not <$> atSOL) (moveColumn (-1))
 
-scrollLine :: Monad m => Int -> TextT m ()
-scrollLine screenHeight = do
+scrollLine :: Monad m => TextT m ()
+scrollLine = do
   curScrollLine <- use topScrollLine
+  height        <- use screenHeight
   (l, c) <- getCursor
   let deltaUp   = l - curScrollLine
-      deltaDown = l - (curScrollLine + screenHeight)
-  if l <= curScrollLine
-    then assign topScrollLine (curScrollLine + deltaUp)
-    else if l >= curScrollLine + screenHeight
-    then assign topScrollLine (curScrollLine + deltaDown)
+      deltaDown = l - (curScrollLine + (height - 1))
+  if l < curScrollLine
+    then topScrollLine %= (+deltaUp) --assign topScrollLine (curScrollLine + deltaUp)
+    else if l > (curScrollLine + height - 1)
+    then topScrollLine %= (+deltaDown)
     else return ()
 
 
@@ -246,14 +251,11 @@ getBuffer  = liftF (GetBuffer id)
 flush :: TextT IO ()
 flush = do
   vty'    <- use vty
-  -- TODO make this tidier
-  (width, height) <- liftIO $ Vty.displayBounds $ Vty.outputIface vty' 
-  scrollLine (height - 2)
   (r, c)  <- getCursor
   topLine <- use topScrollLine
   img     <- use picture
   
-  let curs = Vty.Cursor c ((r + 1) - topLine)
+  let curs = Vty.Cursor c (r - topLine)
       pic  = Vty.picForImage img
   liftIO $ Vty.update vty' pic { Vty.picCursor = curs} 
 
@@ -264,28 +266,30 @@ outputAsLines = do
   liftIO (mapM_ (print) $ take 80 $ B.toLines $ text)
 
 
-drawText :: TextT IO ()
+drawText :: Monad m => TextT m ()
 drawText = do
   text   <- getBuffer
+  scrollLine
   topLine <- use topScrollLine
   vty <- use vty
-  -- TODO make this tidier
-  (width, height) <- liftIO $ Vty.displayBounds $ Vty.outputIface vty
+
+  width  <- use screenWidth
+  height <- use screenHeight
 
   columns <- use point
   name    <- use name
   tabSize <- use tabSize
 
-  let buffer = B.takeLines (height - 2) $ B.dropLines topLine text
+  let buffer = B.takeLines height $ B.dropLines topLine text
       header = Vty.string Vty.defAttr name
       img = drawSection buffer width tabSize 
       curs = Vty.string Vty.defAttr $ show $ B.pointToCursor columns tabSize text
       pref = Vty.string Vty.defAttr $ show $ B.measure text
 
-  assign picture (header Vty.<-> img Vty.<-> (curs Vty.<|> pref))
+  --assign picture (header Vty.<-> img Vty.<-> (curs Vty.<|> pref))
+  assign picture img 
 
   
--- TO FIX takes one character it shouldn't on the final line.
 drawLine :: Int -> Int -> B.Buffer -> Vty.Image
 drawLine width indent buffer = Vty.string Vty.defAttr paddedBuffer
   -- this could be made easier to read
@@ -295,7 +299,7 @@ drawLine width indent buffer = Vty.string Vty.defAttr paddedBuffer
 --  TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: B.Buffer -> Int -> Int ->  Vty.Image
 drawSection text width indent =
-  Vty.vertCat $ map (drawLine 80 indent) (B.toLines text)
+  Vty.vertCat $ map (drawLine width indent) (B.toLines text)
 
   
   

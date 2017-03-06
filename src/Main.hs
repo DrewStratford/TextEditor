@@ -26,13 +26,17 @@ main = do
   ref <- newIORef mempty
   let name = if length args > 0 then args !! 0 else "scratch"
       state = emptyTextState vty name ref
-  run (start file) state
+  -- find screen dimensions
+  (width, height) <- displayBounds $ outputIface vty
+  run (start file width height) state
   shutdown vty
 
-start :: T.Text -> TextT IO ()
-start file = do
+start :: T.Text -> Int -> Int -> TextT IO ()
+start file width height = do
   insertText file
   point .= 0
+  screenHeight .= height
+  screenWidth  .= width
   drawText
   flush
   loop
@@ -61,6 +65,11 @@ loop = do
 
       EvKey KLeft [MShift] -> previous 
       EvKey KRight [MShift] -> next 
+
+      EvResize width height -> do
+        screenHeight .= height
+        screenWidth .= width
+        
       -- prints the combo onto the document
       other                -> insertString (show other)
     drawText
