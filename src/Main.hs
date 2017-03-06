@@ -10,6 +10,7 @@ import Control.Monad
 import Data.IORef
 import qualified Data.Text.IO as T
 import qualified Data.Text as T
+import System.Environment
 
 import Graphics.Vty
 
@@ -18,12 +19,13 @@ import Control.TextMonad
 main :: IO ()
 main = do
   vty <- createVty
-  file <- T.readFile "/home/drew/Documents/Writing/Writing_Ideas-July_11.txt"
-  --file <- T.readFile "war_and_peace.txt" -- ~3mb good for speed testing
-  --file <- T.readFile "big.txt" -- ~9mb good for speed testing
-  --file <- T.readFile "bigger.txt" -- ~29mb good for speed testing
+  args <- getArgs
+  file <- if length args > 0
+             then T.readFile $ args !! 0 
+             else return ""
   ref <- newIORef mempty
-  let state = emptyTextState vty "scratch" ref
+  let name = if length args > 0 then args !! 0 else "scratch"
+      state = emptyTextState vty name ref
   run (start file) state
   shutdown vty
 

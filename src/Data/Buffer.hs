@@ -257,6 +257,7 @@ splitNLines n text = T.concat `both` Prelude.splitAt n asLines
         addNLs [x] = [x]
         addNLs (x:xs) = (x `T.snoc` '\n') : addNLs xs
 
+
 {- | Expands out all the strings in the string by the given indent amount.
      TODO: consider giving a list of tabstops of varying amount
 -}

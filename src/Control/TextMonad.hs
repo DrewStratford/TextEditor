@@ -289,7 +289,8 @@ drawText = do
 drawLine :: Int -> Int -> B.Buffer -> Vty.Image
 drawLine width indent buffer = Vty.string Vty.defAttr paddedBuffer
   -- this could be made easier to read
-  where paddedBuffer = B.expandTabs indent $ T.unpack $ B.toText $ B.take width $ B.dropEnd 1 buffer
+  where paddedBuffer = B.expandTabs indent $ T.unpack $ B.toText $ B.take width line
+        line = if B.lineCount buffer > 0 then B.dropEnd 1 buffer else buffer
         
 --  TextBuffer to draw from, x, y, width of section, height of section
 drawSection :: B.Buffer -> Int -> Int ->  Vty.Image
