@@ -236,7 +236,12 @@ getKey = liftF (Get id)
   
 
 open :: Monad m => String -> TextT m ()
-open str = liftF (Open str ())
+open str = do
+  h <- use screenHeight
+  w <- use screenWidth
+  liftF (Open str ())
+  screenHeight .= h
+  screenWidth .= w
 
 close :: Monad m => TextT m ()
 close = liftF (Close ()) 
@@ -273,7 +278,8 @@ outputAsLines = do
   liftIO (mapM_ (print) $ take 80 $ B.toLines $ text)
 
 
-drawText :: Monad m => TextT m ()
+--drawText :: Monad m => TextT m ()
+drawText :: TextT IO ()
 drawText = do
   text   <- getBuffer
   scrollLine
@@ -415,3 +421,8 @@ run textT state =
       stateT  = interpret buffers textT
   in fst <$> runStateT stateT state
 
+debug :: String -> TextT IO ()
+debug msg = do
+  liftIO $ print msg
+  getKey
+  return ()
