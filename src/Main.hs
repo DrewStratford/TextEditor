@@ -47,7 +47,8 @@ loop = do
   unless (key == EvKey (KChar 'c') [MCtrl]) $ do
     case key of
       EvKey (KChar c) [] -> insertChar c
-      EvKey KBS []       -> deleteAmount 1
+      EvKey KBS []       -> backspaceAmount 1
+      EvKey KDel []      -> deleteAmount 1
       EvKey KEnter []    -> insertText "\n"
       EvKey (KChar 'o') [MCtrl] -> open "(*new*)"
       EvKey (KChar 's') [MCtrl] -> saveFile

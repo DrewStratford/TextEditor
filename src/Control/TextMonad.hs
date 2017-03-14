@@ -12,6 +12,7 @@ module Control.TextMonad
   , insertText
   , insertChar
   , insertString
+  , backspaceAmount
   , deleteAmount
   , moveColumn
   , moveLine
@@ -215,12 +216,18 @@ insertBuffer buffer = do
   moveColumn amount
 
 
-deleteAmount :: Monad m => Int -> TextT m ()
-deleteAmount amount = do
+backspaceAmount :: Monad m => Int -> TextT m ()
+backspaceAmount amount = do
   column <- use point
   toBuffer (B.deleteAmountAt amount column)
   moveColumn (-amount)
   
+
+deleteAmount :: Monad m => Int -> TextT m ()
+deleteAmount amount = do
+  column <- use point
+  toBuffer (B.deleteAmountAt amount (column + amount))
+  moveColumn 0
 
 --------------------------------------------------------------------------------
 -- Some helpers
